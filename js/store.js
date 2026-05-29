@@ -3,7 +3,7 @@
 // localStorage under a single key; swapping in Supabase later means changing
 // only this file (see NEXT_STEPS.md), not the UI.
 
-import { emptyData, seedData, DATA_VERSION } from './schema.js';
+import { emptyData, seedData, starterData, DATA_VERSION } from './schema.js';
 
 const ROOT_KEY = 'dominicOS';
 const BROWSER_QUOTA_BYTES = 5 * 1024 * 1024; // ~5MB typical localStorage cap
@@ -18,7 +18,7 @@ export function loadData() {
   try { raw = localStorage.getItem(ROOT_KEY); } catch (e) { /* storage blocked */ }
 
   if (!raw) {
-    _cache = seedData();           // first ever load -> demo seed
+    _cache = starterData();        // first ever load -> real-user mode
     persist();
     return _cache;
   }
@@ -27,7 +27,7 @@ export function loadData() {
     _cache = migrate(parsed);
   } catch (e) {
     console.warn('[store] corrupt data, reseeding', e);
-    _cache = seedData();
+    _cache = starterData();
     persist();
   }
   return _cache;
@@ -59,6 +59,10 @@ function migrate(data) {
   const base = emptyData();
   const merged = { ...base, ...data };
   merged.meta = { ...base.meta, ...(data.meta || {}), version: DATA_VERSION };
+  const fromVersion = (data.meta && data.meta.version) || 1;
+  if (fromVersion < 3 && looksLikeUntouchedDemo(data)) {
+    return starterData();
+  }
   merged.settings = { ...base.settings, ...(data.settings || {}) };
   merged.settings.water = { ...base.settings.water, ...((data.settings || {}).water || {}) };
   merged.profile = { ...base.profile, ...(data.profile || {}) };
@@ -73,7 +77,6 @@ function migrate(data) {
 
   // v1 -> v2: if the gym library is still the untouched demo, swap in the
   // expanded machine/cable-first library (and its matching sample split).
-  const fromVersion = (data.meta && data.meta.version) || 1;
   if (fromVersion < DATA_VERSION) {
     const exs = Array.isArray(data.exercises) ? data.exercises : [];
     const untouchedLibrary = exs.length === 0 || exs.every(e => e && e._sample);
@@ -86,6 +89,25 @@ function migrate(data) {
     }
   }
   return merged;
+}
+
+function looksLikeUntouchedDemo(data) {
+  if (!data || !data.meta || !data.meta.seeded) return false;
+  const collections = [
+    'tasks', 'supplements', 'sleepRecoveryLogs', 'bodyWeightEntries',
+    'workoutSessions', 'personalRecords', 'classes', 'assignments', 'exams',
+    'studyBlocks', 'adminReminders', 'contacts', 'subscriptions',
+    'weeklyReviews', 'monthlyReviews',
+  ];
+  const hasRealTopLevel = collections.some(name => {
+    const arr = data[name];
+    return Array.isArray(arr) && arr.some(item => item && !item._sample);
+  });
+  const p = data.productivity || {};
+  const hasRealProductivity = [
+    'weeklyGoals', 'deepWorkBlocks', 'priorityBacklog', 'followUps', 'lifeAdmin', 'habits',
+  ].some(name => Array.isArray(p[name]) && p[name].some(item => item && !item._sample));
+  return !hasRealTopLevel && !hasRealProductivity;
 }
 
 // ---- collection helpers (arrays of {id}) ---------------------------------
@@ -167,6 +189,11 @@ export function importBackup(jsonString) {
 // Wipe back to the labeled demo seed.
 export function resetToDemo() {
   _cache = seedData();
+  return persist();
+}
+
+export function resetToStarter() {
+  _cache = starterData();
   return persist();
 }
 

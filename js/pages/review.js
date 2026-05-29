@@ -1,13 +1,12 @@
-// review.js — weekly / monthly review. Auto-pulls stats from stored data.
+// review.js - analytics and reflection.
 
 import { el, clear, toast, openModal, buildForm, confirmDialog, uid } from '../ui.js';
 import { loadData, updateItem, deleteItem } from '../store.js';
 import { todayKey, lastNDays, fmtShort } from '../dates.js';
 import { readinessScore, waterTarget } from '../compute.js';
-import { summarizeWeeklyTraining } from '../workoutCoach.js';
-import { kpiTile } from '../components.js';
+import { pageHero, pageGraphic, statTile, premiumEmpty, visibleItems, sparkline } from '../components.js';
 
-let period = 'weekly'; // 'weekly' | 'monthly'
+let period = 'weekly';
 
 export function render(main) {
   const refresh = () => render(main);
@@ -15,145 +14,183 @@ export function render(main) {
   const d = loadData();
   const days = period === 'weekly' ? 7 : 30;
   const stats = computeStats(d, days);
+  const coll = period === 'weekly' ? 'weeklyReviews' : 'monthlyReviews';
+  const reviews = visibleItems(d, d[coll]).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
-  main.appendChild(el('div.page-head', {}, [
-    el('div.eyebrow', { text: 'Auto-pulled from your logs' }),
-    el('h1', { text: 'Review' }),
-  ]));
+  main.appendChild(pageHero({
+    kicker: 'Life Review',
+    title: 'Reflect and refine.',
+    subtitle: 'Training, recovery, execution, reflection.',
+    tone: 'violet',
+    graphic: pageGraphic('review'),
+    actions: [
+      el('button.btn.primary', { type: 'button', onclick: () => editReview(coll, stats, refresh) }, ['New reflection']),
+      el('button.btn.ghost', { type: 'button', onclick: () => { period = period === 'weekly' ? 'monthly' : 'weekly'; refresh(); } }, [period === 'weekly' ? 'Monthly' : 'Weekly']),
+    ],
+    metrics: [
+      statTile('Overall', stats.overallScore || '--', 'score', 'mint'),
+      statTile('Workouts', stats.workouts, days + 'd', 'pink'),
+      statTile('Readiness', stats.avgReadiness ?? '--', stats.readinessCall || 'manual', 'sky'),
+      statTile('Tasks', `${stats.tasksDone}/${stats.tasksTotal}`, 'done', 'amber'),
+    ],
+  }));
 
-  const toggle = el('div.pill-toggle', { style: { marginBottom: '16px' } });
+  const toggle = el('div.pill-toggle', { style: { marginTop: '16px' } });
   ['weekly', 'monthly'].forEach(p => toggle.appendChild(el('button' + (period === p ? '.active' : ''), { type: 'button', onclick: () => { period = p; refresh(); } }, [p[0].toUpperCase() + p.slice(1)])));
   main.appendChild(toggle);
 
-  // KPI grid
-  const grid = el('div.grid.grid-3');
-  grid.appendChild(kpiTile('Workouts', String(stats.workouts), days + 'd', 'pink'));
-  grid.appendChild(kpiTile('Volume', (stats.volume / 1000).toFixed(1) + 'k', 'lb', 'mint'));
-  grid.appendChild(kpiTile('Avg readiness', stats.avgReadiness ?? '—', stats.readinessCall || '', 'amber'));
-  grid.appendChild(kpiTile('Tasks done', `${stats.tasksDone}/${stats.tasksTotal}`, 'all-time', 'mint'));
-  grid.appendChild(kpiTile('Water days', `${stats.waterHit}/${stats.waterLogged}`, 'hit target', 'pink'));
-  grid.appendChild(kpiTile('Supplements', stats.supAdherence + '%', 'adherence', 'amber'));
-  main.appendChild(grid);
-
-  // scorecard averages
-  main.appendChild(el('div.section-head', {}, [el('h2.section-title', { text: 'Scorecard averages' })]));
-  const sc = el('div.card');
-  [['focus', 'Focus'], ['body', 'Body'], ['mind', 'Mind'], ['recovery', 'Recovery']].forEach(([k, label]) => {
-    const v = stats.scorecard[k];
-    sc.appendChild(el('div', { style: { marginBottom: '10px' } }, [
-      el('div.row.between', {}, [el('span.small', { text: label }), el('span.tiny.muted', { text: (v ?? 0).toFixed(1) + ' / 5' })]),
-      el('div.bar', { style: { marginTop: '5px' } }, [el('span', { style: { width: ((v || 0) / 5 * 100) + '%' } })]),
-    ]));
-  });
-  main.appendChild(sc);
-
-  // body + founder snapshot
-  main.appendChild(el('div.card', { style: { marginTop: '12px' } }, [
-    el('div.row.between', {}, [el('span.label-cap', { text: 'Body weight change' }), el('span', { class: stats.bwDelta > 0 ? 'text-mint' : (stats.bwDelta < 0 ? 'text-amber' : 'muted'), text: (stats.bwDelta > 0 ? '+' : '') + stats.bwDelta + ' lb' })]),
-    el('div.hr'),
-    el('div.row.between', {}, [el('span.label-cap', { text: 'Weekly goals done' }), el('span.text-mint', { text: stats.goalsDone + ' / ' + stats.goalsTotal })]),
-    el('div.hr'),
-    el('div.row.between', {}, [el('span.label-cap', { text: 'Backlog cleared' }), el('span', { text: stats.backlogDone + ' / ' + stats.backlogTotal })]),
-    el('div.hr'),
-    el('div.row.between', {}, [el('span.label-cap', { text: 'Habit consistency' }), el('span.text-amber', { text: stats.habitPct + '%' })]),
-    el('div.hr'),
-    el('div.row.between', {}, [el('span.label-cap', { text: 'PRs set' }), el('span.text-mint', { text: String(stats.prs) })]),
+  main.appendChild(el('div.grid.grid-3', { style: { marginTop: '16px' } }, [
+    statTile('Volume', (stats.volume / 1000).toFixed(1) + 'k', 'lb', 'mint'),
+    statTile('Water days', `${stats.waterHit}/${stats.waterLogged}`, 'hit target', 'sky'),
+    statTile('Supplements', stats.supAdherence + '%', 'adherence', 'amber'),
+    statTile('Goals', `${stats.goalsDone}/${stats.goalsTotal}`, 'done', 'mint'),
+    statTile('Backlog', `${stats.backlogDone}/${stats.backlogTotal}`, 'cleared', 'sky'),
+    statTile('PRs', stats.prs, 'set', 'pink'),
   ]));
 
-  // review notes
-  const coll = period === 'weekly' ? 'weeklyReviews' : 'monthlyReviews';
+  main.appendChild(el('div.section-head', {}, [el('h2.section-title', { text: 'Performance chart' })]));
+  main.appendChild(el('div.card', {}, [
+    el('div.row.between', { style: { marginBottom: '12px' } }, [
+      el('div.label-cap', { text: days + '-day activity' }),
+      el('span.chip.mint', { text: stats.overallScore ? stats.overallScore + ' score' : 'not enough data' }),
+    ]),
+    sparkline(stats.activitySeries, true),
+  ]));
+
+  main.appendChild(el('div.section-head', {}, [el('h2.section-title', { text: 'Score rings' })]));
+  main.appendChild(el('div.card', {}, [
+    scoreLine('Focus', stats.scorecard.focus),
+    scoreLine('Body', stats.scorecard.body),
+    scoreLine('Mind', stats.scorecard.mind),
+    scoreLine('Recovery', stats.scorecard.recovery),
+  ]));
+
   main.appendChild(el('div.section-head', {}, [
     el('h2.section-title', { text: (period === 'weekly' ? 'Weekly' : 'Monthly') + ' reflections' }),
-    el('button.btn.sm.primary', { type: 'button', onclick: () => editReview(coll, stats, refresh) }, ['+ New']),
+    el('button.btn.sm.primary', { type: 'button', onclick: () => editReview(coll, stats, refresh) }, ['New']),
   ]));
-  const reviews = [...d[coll]].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  if (!reviews.length) main.appendChild(el('div.empty', {}, [el('p', { text: 'No reflections yet. Capture wins, lessons, and next focus.' })]));
-  else reviews.forEach(rv => main.appendChild(el('div.card.tight', { style: { marginBottom: '10px' } }, [
-    el('div.row.between', {}, [el('div.label-cap', { text: fmtShort(rv.createdAt) }), el('button.icon-btn.danger', { type: 'button', onclick: async () => { if (await confirmDialog('Delete reflection?')) { deleteItem(coll, rv.id); refresh(); } } }, ['🗑'])]),
-    rv.wins ? el('p.small', {}, [el('b.text-mint', { text: 'Wins: ' }), rv.wins]) : null,
-    rv.lessons ? el('p.small', { style: { marginTop: '5px' } }, [el('b.text-amber', { text: 'Lessons: ' }), rv.lessons]) : null,
-    rv.focus ? el('p.small', { style: { marginTop: '5px' } }, [el('b.text-pink', { text: 'Next: ' }), rv.focus]) : null,
-  ].filter(Boolean))));
+  if (!reviews.length) {
+    main.appendChild(premiumEmpty({ title: 'No reflections yet', text: 'Capture wins, lessons, and next focus when you actually review.', actionLabel: 'New reflection', onAction: () => editReview(coll, stats, refresh), graphic: 'review' }));
+  } else {
+    reviews.forEach(rv => main.appendChild(reviewCard(rv, coll, refresh)));
+  }
+}
 
-  main.appendChild(el('p.tiny.faint.center', { style: { marginTop: '18px' }, text: 'Stats recompute from your logs every time you open this page.' }));
+function scoreLine(label, v) {
+  const value = v || 0;
+  return el('div', { style: { marginBottom: '12px' } }, [
+    el('div.row.between', {}, [el('span.small', { text: label }), el('span.tiny.muted', { text: value.toFixed(1) + ' / 5' })]),
+    el('div.bar', { style: { marginTop: '6px' } }, [el('span', { style: { width: ((value / 5) * 100) + '%' } })]),
+  ]);
+}
+
+function reviewCard(rv, coll, refresh) {
+  return el('div.card.tight', { style: { marginBottom: '10px' } }, [
+    el('div.row.between', {}, [
+      el('div.label-cap', { text: fmtShort(rv.createdAt) }),
+      el('button.icon-btn.danger', { type: 'button', onclick: async () => { if (await confirmDialog('Delete reflection?')) { deleteItem(coll, rv.id); refresh(); } } }, ['Del']),
+    ]),
+    rv.wins ? el('p.small', { style: { marginTop: '10px' } }, ['Wins: ' + rv.wins]) : null,
+    rv.lessons ? el('p.small', { style: { marginTop: '6px' } }, ['Lessons: ' + rv.lessons]) : null,
+    rv.focus ? el('p.small.text-mint', { style: { marginTop: '6px' }, text: 'Next: ' + rv.focus }) : null,
+  ].filter(Boolean));
 }
 
 function computeStats(d, days) {
   const window = lastNDays(days);
   const inWindow = dk => window.includes(dk);
-
-  // workouts + volume
-  const sum = summarizeWeeklyTraining(d); // 7d figures
-  const sessions = d.workoutSessions.filter(s => s.completed && inWindow(s.date));
+  const sessions = visibleItems(d, d.workoutSessions).filter(s => s.completed && inWindow(s.date));
   let volume = 0;
-  sessions.forEach(s => s.exercises.forEach(e => e.sets.forEach(st => { if (st.done && st.weight && st.reps) volume += st.weight * st.reps; })));
+  const activitySeries = window.map(dk => {
+    let dayVolume = 0;
+    sessions.filter(s => s.date === dk).forEach(s => s.exercises.forEach(e => e.sets.forEach(st => {
+      if (st.done && st.weight && st.reps) dayVolume += st.weight * st.reps;
+    })));
+    volume += dayVolume;
+    return Math.round(dayVolume / 100);
+  });
 
-  // readiness
-  const recs = d.sleepRecoveryLogs.filter(l => inWindow(l.date));
+  const recs = visibleItems(d, d.sleepRecoveryLogs).filter(l => inWindow(l.date));
   const readinessVals = recs.map(l => readinessScore(l).score).filter(v => v != null);
   const avgReadiness = readinessVals.length ? Math.round(readinessVals.reduce((a, b) => a + b, 0) / readinessVals.length) : null;
   const readinessCall = avgReadiness == null ? '' : (avgReadiness >= 75 ? 'Push' : avgReadiness >= 60 ? 'Normal' : avgReadiness >= 45 ? 'Maintain' : 'Recover');
-
-  // tasks (all-time done vs total)
-  const tasksDone = d.tasks.filter(t => t.done).length;
-  const tasksTotal = d.tasks.length;
-
-  // water adherence
+  const tasks = visibleItems(d, d.tasks);
+  const tasksDone = tasks.filter(t => t.done).length;
+  const tasksTotal = tasks.length;
   const target = waterTarget(d.settings.water).targetOz;
-  let waterLogged = 0, waterHit = 0;
-  window.forEach(dk => { const w = d.waterLogs[dk]; if (w && w.intakeOz > 0) { waterLogged++; if (w.intakeOz >= (w.targetOz || target)) waterHit++; } });
-
-  // supplement adherence (avg taken/total across logged days)
-  const total = d.supplements.length || 1;
-  let supDays = 0, supSum = 0;
-  window.forEach(dk => { const log = d.supplementLog[dk]; if (log) { supDays++; supSum += Object.keys(log).length / total; } });
-  const supAdherence = supDays ? Math.round((supSum / supDays) * 100) : 0;
-
-  // scorecard averages
+  let waterLogged = 0;
+  let waterHit = 0;
+  window.forEach(dk => {
+    const w = d.waterLogs[dk];
+    if (w && w.intakeOz > 0) {
+      waterLogged++;
+      if (w.intakeOz >= (w.targetOz || target)) waterHit++;
+    }
+  });
+  const sups = visibleItems(d, d.supplements);
+  const total = sups.length || 1;
+  let supDays = 0;
+  let supSum = 0;
+  window.forEach(dk => {
+    const log = d.supplementLog[dk];
+    if (log) {
+      supDays++;
+      supSum += Object.keys(log).length / total;
+    }
+  });
+  const supAdherence = supDays && sups.length ? Math.round((supSum / supDays) * 100) : 0;
   const scKeys = ['focus', 'body', 'mind', 'recovery'];
   const scAcc = { focus: [], body: [], mind: [], recovery: [] };
-  window.forEach(dk => { const log = d.dailyLogs[dk]; if (log?.scorecard) scKeys.forEach(k => { if (log.scorecard[k]) scAcc[k].push(log.scorecard[k]); }); });
+  window.forEach(dk => {
+    const log = d.dailyLogs[dk];
+    if (log?.scorecard && !(log._sample && !d.meta?.demoMode)) scKeys.forEach(k => { if (log.scorecard[k]) scAcc[k].push(log.scorecard[k]); });
+  });
   const scorecard = {};
   scKeys.forEach(k => { scorecard[k] = scAcc[k].length ? scAcc[k].reduce((a, b) => a + b, 0) / scAcc[k].length : 0; });
-
-  // body weight delta
-  const bw = [...d.bodyWeightEntries].filter(e => inWindow(e.date)).sort((a, b) => (a.date < b.date ? -1 : 1));
-  const bwDelta = bw.length >= 2 ? +(bw.at(-1).weight - bw[0].weight).toFixed(1) : 0;
-
-  // productivity progress
-  const p2 = d.productivity || {};
-  const goalsDone = (p2.weeklyGoals || []).filter(g => g.status === 'Done').length;
-  const goalsTotal = (p2.weeklyGoals || []).length;
-  const backlogDone = (p2.priorityBacklog || []).filter(i => i.done).length;
-  const backlogTotal = (p2.priorityBacklog || []).length;
-  // habit consistency over the window
-  let habitCells = 0, habitHit = 0;
-  (p2.habits || []).forEach(h => { window.forEach(dk => { habitCells++; if (h.log && h.log[dk]) habitHit++; }); });
-  const habitPct = habitCells ? Math.round((habitHit / habitCells) * 100) : 0;
-
-  // prs in window
-  const prs = d.personalRecords.filter(p => inWindow(p.date)).length;
-
+  const p = d.productivity || {};
+  const goals = visibleItems(d, p.weeklyGoals);
+  const backlog = visibleItems(d, p.priorityBacklog);
+  const prs = visibleItems(d, d.personalRecords).filter(p => inWindow(p.date)).length;
+  const overallParts = [
+    avgReadiness,
+    tasksTotal ? Math.round((tasksDone / tasksTotal) * 100) : null,
+    sessions.length ? Math.min(100, sessions.length * 16) : null,
+    waterLogged ? Math.round((waterHit / waterLogged) * 100) : null,
+  ].filter(v => v != null);
+  const overallScore = overallParts.length ? Math.round(overallParts.reduce((a, b) => a + b, 0) / overallParts.length) : null;
   return {
-    workouts: sessions.length, volume: Math.round(volume),
-    avgReadiness, readinessCall,
-    tasksDone, tasksTotal,
-    waterLogged, waterHit,
+    workouts: sessions.length,
+    volume: Math.round(volume),
+    avgReadiness,
+    readinessCall,
+    tasksDone,
+    tasksTotal,
+    waterLogged,
+    waterHit,
     supAdherence,
-    scorecard, bwDelta,
-    goalsDone, goalsTotal, backlogDone, backlogTotal, habitPct, prs,
+    scorecard,
+    goalsDone: goals.filter(g => g.status === 'Done').length,
+    goalsTotal: goals.length,
+    backlogDone: backlog.filter(i => i.done).length,
+    backlogTotal: backlog.length,
+    prs,
+    overallScore,
+    activitySeries,
   };
 }
 
 function editReview(coll, stats, refresh) {
   const { form, values } = buildForm([
     { name: 'wins', label: 'Wins', type: 'textarea', value: '', placeholder: 'What went well?' },
-    { name: 'lessons', label: 'Lessons', type: 'textarea', value: '', placeholder: 'What did I learn / avoid?' },
+    { name: 'lessons', label: 'Lessons', type: 'textarea', value: '', placeholder: 'What did I learn?' },
     { name: 'focus', label: 'Next focus', type: 'textarea', value: '', placeholder: 'The one thing for next period.' },
   ]);
-  const snapshot = el('p.tiny.faint', { style: { marginTop: '6px' }, text: `Snapshot: ${stats.workouts} workouts · readiness ${stats.avgReadiness ?? '—'} · BW ${stats.bwDelta > 0 ? '+' : ''}${stats.bwDelta}lb` });
+  const snapshot = el('p.tiny.faint', {
+    style: { marginTop: '8px' },
+    text: `Snapshot: ${stats.workouts} workouts, readiness ${stats.avgReadiness ?? '--'}, score ${stats.overallScore ?? '--'}`,
+  });
   openModal({ title: 'New reflection', wide: true, body: el('div', {}, [form, snapshot]), actions: [
     { label: 'Cancel', kind: 'ghost', onClick: () => true },
-    { label: 'Save', kind: 'primary', onClick: () => { const v = values(); updateItem(coll, { id: uid('rv'), createdAt: todayKey(), snapshot: { workouts: stats.workouts, readiness: stats.avgReadiness, bwDelta: stats.bwDelta }, ...v }); toast('Saved', 'ok'); refresh(); } },
+    { label: 'Save', kind: 'primary', onClick: () => { updateItem(coll, { id: uid('rv'), createdAt: todayKey(), snapshot: { workouts: stats.workouts, readiness: stats.avgReadiness, score: stats.overallScore }, ...values() }); toast('Saved', 'ok'); refresh(); } },
   ] });
 }

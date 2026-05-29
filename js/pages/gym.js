@@ -10,13 +10,16 @@ import {
   recommendExerciseSwaps, summarizeWeeklyTraining, adjustWorkoutForRecovery, e1rm,
 } from '../workoutCoach.js';
 import { todaySplitDay, readinessToday } from '../compute.js';
-import { sparkline, kpiTile, storageMeter } from '../components.js';
+import { sparkline, kpiTile, storageMeter, pageHero, pageGraphic, statTile, premiumEmpty } from '../components.js';
 
 let gymTab = 'today';
 let activeSession = null;
+let libraryQuery = '';
+let libraryCategory = 'All';
+let libraryClass = 'All';
 
 const TABS = [
-  { id: 'today', label: 'Today' }, { id: 'plan', label: 'Plan & Split' },
+  { id: 'today', label: 'Today' }, { id: 'plan', label: 'Split' },
   { id: 'library', label: 'Library' }, { id: 'body', label: 'Body & Photos' },
   { id: 'progress', label: 'Progress' },
 ];
@@ -71,10 +74,30 @@ function exerciseVisual(ex, height = 104) {
 export function render(main) {
   const refresh = () => render(main);
   clear(main);
-  main.appendChild(el('div.page-head', {}, [
-    el('div.eyebrow', { text: 'Lean bulk · progressive overload' }),
-    el('h1', { text: 'Gym' }),
-  ]));
+  const d = loadData();
+  const day = todaySplitDay(d);
+  const wk = day ? generateWorkoutFromSplit(day, d) : null;
+  const r = readinessToday(d);
+
+  main.appendChild(pageHero({
+    kicker: 'Gym',
+    title: wk && wk.kind === 'training' ? `${wk.label} strength` : 'Train with purpose.',
+    subtitle: wk && wk.kind === 'training'
+      ? `${(day.focusMuscles || []).join(', ') || 'Full body'} - ${day.durationMin || 60} min - machine/cable first.`
+      : 'Your starter split, exercise library, generator, and progression coach live here.',
+    tone: 'hot',
+    graphic: pageGraphic('muscle'),
+    actions: [
+      el('button.btn.primary', { type: 'button', onclick: () => { if (wk && wk.kind === 'training') startSession(wk, refresh); else { gymTab = 'plan'; refresh(); } } }, [wk && wk.kind === 'training' ? 'Start workout' : 'Set up split']),
+      el('button.btn.ghost', { type: 'button', onclick: () => { gymTab = 'library'; refresh(); } }, ['Exercise library']),
+    ],
+    metrics: [
+      statTile('Readiness', r.score ?? '--', r.call || 'manual', 'mint'),
+      statTile('Duration', day?.durationMin || '--', 'min', 'sky'),
+      statTile('Exercises', wk?.plannedExercises?.length || 0, 'today', 'amber'),
+      statTile('Focus', day?.label || 'Starter', day?.kind || 'split', 'pink'),
+    ],
+  }));
 
   const tabBar = el('div.pill-toggle.scroll-x', { style: { marginBottom: '16px' } });
   TABS.forEach(t => tabBar.appendChild(el('button' + (gymTab === t.id ? '.active' : ''), { type: 'button', onclick: () => { gymTab = t.id; refresh(); } }, [t.label])));
@@ -91,7 +114,7 @@ function renderToday(c, refresh) {
   const d = loadData();
   const day = todaySplitDay(d);
   if (!day) {
-    c.appendChild(el('div.empty', {}, [el('p', { text: 'No training split set up yet.' }), el('button.btn.primary', { type: 'button', onclick: () => { gymTab = 'plan'; render(document.getElementById('main')); } }, ['Set up your split'])]));
+    c.appendChild(premiumEmpty({ title: 'No training split set', text: 'Set up your week to generate workouts.', actionLabel: 'Set up split', onAction: () => { gymTab = 'plan'; render(document.getElementById('main')); }, graphic: 'muscle' }));
     return;
   }
   let workout = generateWorkoutFromSplit(day, d);
@@ -99,7 +122,9 @@ function renderToday(c, refresh) {
   const adj = adjustWorkoutForRecovery(workout, r.score);
   workout = adj.workout;
 
-  const head = el('div.card.card-glow', {}, [
+  c.appendChild(weeklySplitRail(d));
+
+  const head = el('div.card.card-glow', { style: { marginTop: '14px' } }, [
     el('div.row.between', {}, [
       el('div', {}, [
         el('div.label-cap', { text: weekdayName() + ' · ' + (day.location || 'Gym') }),
@@ -120,10 +145,88 @@ function renderToday(c, refresh) {
 
   c.appendChild(el('button.btn.primary.block', { type: 'button', style: { margin: '13px 0' }, onclick: () => startSession(workout, refresh) }, ['▶  Start workout & log sets']));
 
-  workout.plannedExercises.forEach(p => c.appendChild(exercisePrescriptionCard(p)));
+  c.appendChild(el('div.section-head', {}, [
+    el('h2.section-title.accent', { text: 'Exercises' }),
+    el('span.tiny.faint', { text: workout.plannedExercises.length + ' exercises' }),
+  ]));
+  const list = el('div.exercise-list');
+  workout.plannedExercises.forEach((p, i) => list.appendChild(exercisePlanCard(p, workout, i, refresh)));
+  c.appendChild(list);
 }
 
-// Rowan-style "prescription" card: visual + big target headline + tag + reason.
+function weeklySplitRail(d) {
+  const split = (d.splits || []).find(s => s.id === d.activeSplitId) || (d.splits || [])[0];
+  if (!split) return el('div');
+  const rail = el('div.split-rail');
+  split.days.forEach(day => {
+    const active = day.weekday === weekdayName();
+    rail.appendChild(el('button.split-card' + (active ? '.active' : '') + (day.kind === 'rest' ? '.rest' : ''), {
+      type: 'button',
+      onclick: () => { gymTab = 'plan'; render(document.getElementById('main')); },
+    }, [
+      el('div.label-cap', { text: day.weekday.slice(0, 3) }),
+      el('div.title', { text: day.label || day.kind }),
+      el('div.tiny.muted', { text: day.kind === 'training' ? `${(day.focusMuscles || []).join(', ') || 'Training'} - ${day.durationMin || 0} min` : day.kind }),
+    ]));
+  });
+  return el('section', {}, [
+    el('div.section-head', {}, [el('h2.section-title', { text: 'Weekly split' })]),
+    rail,
+  ]);
+}
+
+function exercisePlanCard(p, workout, index, refresh) {
+  const bodyish = p.classification === 'bodyweight' || p.classification === 'functional';
+  const weightLabel = p.targetWeight != null ? p.targetWeight + ' lb' : (bodyish ? 'BW' : '--');
+  return el('div.exercise-plan-card', {}, [
+    exerciseVisual(p, 128),
+    el('div.exercise-plan-body', {}, [
+      el('div.exercise-plan-head', {}, [
+        el('div', {}, [
+          el('div.exercise-name', { text: p.name }),
+          el('div.exercise-sub', { text: `${p.primaryMuscle || p.category} - ${p.equipment || p.classification}` }),
+        ]),
+        el('span.po-rx-tag', { class: ({ increase: 'up', hold: 'hold', stalled: 'down', new: 'new' }[p.progStatus] || 'hold'), text: p.progLabel || 'Plan' }),
+      ]),
+      el('div.exercise-stats', {}, [
+        statMini('Sets', p.sets),
+        statMini('Reps', `${p.repLow}-${p.repHigh}`),
+        statMini('Rest', p.restSec + 's'),
+        statMini('Target', weightLabel),
+      ]),
+      el('div.exercise-cue', { text: p.cues || p.progNote || 'Controlled tempo. Own the range.' }),
+      el('div.row.wrap', {}, [
+        el('button.btn.sm.ghost', { type: 'button', onclick: () => previewSwap(p) }, ['Swap']),
+        el('button.btn.sm.primary', { type: 'button', onclick: () => { startSession(workout, refresh); activeSession.currentIndex = index; refresh(); } }, ['Log']),
+      ]),
+    ]),
+  ]);
+}
+
+function statMini(label, value) {
+  return el('div.exercise-stat', {}, [el('b', { text: String(value) }), el('span', { text: label })]);
+}
+
+function previewSwap(p) {
+  const d = loadData();
+  const ex = d.exercises.find(e => e.id === p.exerciseId);
+  if (!ex) return;
+  const alts = recommendExerciseSwaps(ex, d);
+  if (!alts.length) { toast('No alternatives in library', 'warn'); return; }
+  openModal({
+    title: 'Swap options',
+    body: el('div.list', {}, alts.slice(0, 8).map(a => el('div.item', {}, [
+      exerciseVisual(a, 72),
+      el('div.grow', {}, [
+        el('div.title', { text: a.name }),
+        el('div.meta', {}, [el('span.chip', { text: a.category }), el('span.chip.muted', { text: a.classification })]),
+      ]),
+    ]))),
+    actions: [{ label: 'Close', kind: 'ghost', onClick: () => true }],
+  });
+}
+
+// Legacy prescription card retained for generated-week summaries.
 function exercisePrescriptionCard(p) {
   const tagCls = { increase: 'up', hold: 'hold', stalled: 'down', new: 'new' }[p.progStatus] || 'hold';
   const bodyish = p.classification === 'bodyweight' || p.classification === 'functional';
@@ -144,39 +247,77 @@ function exercisePrescriptionCard(p) {
 /* ============================ LIVE SESSION ============================ */
 function startSession(workout, refresh) {
   activeSession = {
-    date: todayKey(), dayLabel: workout.label, notes: '',
+    date: todayKey(), dayLabel: workout.label, notes: '', currentIndex: 0,
     exercises: workout.plannedExercises.map(p => ({
       exerciseId: p.exerciseId, name: p.name, cues: p.cues, restSec: p.restSec, category: p.category,
+      primaryMuscle: p.primaryMuscle, equipment: p.equipment, classification: p.classification, imageUrl: p.imageUrl,
       repLow: p.repLow, repHigh: p.repHigh, targetWeight: p.targetWeight, targetReps: p.targetReps, progNote: p.progNote, notes: '',
       sets: Array.from({ length: p.sets }, () => ({ weight: p.targetWeight ?? '', reps: '', done: false })),
     })),
   };
   refresh();
 }
-function startEmptySession(refresh) { activeSession = { date: todayKey(), dayLabel: 'Ad-hoc', notes: '', exercises: [] }; refresh(); }
+function startEmptySession(refresh) { activeSession = { date: todayKey(), dayLabel: 'Ad-hoc', notes: '', currentIndex: 0, exercises: [] }; refresh(); }
 
 function renderSession(c, refresh) {
   const s = activeSession;
+  if (!s.exercises.length) {
+    c.appendChild(el('div.card.card-glow', {}, [
+      el('div.row.between', {}, [
+        el('div', {}, [el('div.label-cap.text-pink', { text: 'Live workout' }), el('h2', { text: s.dayLabel + ' - ' + fmtShort(s.date), style: { fontSize: '20px' } })]),
+        el('button.btn.sm.ghost', { type: 'button', onclick: async () => { if (await confirmDialog('Discard this in-progress workout?', { confirmLabel: 'Discard', kind: 'danger' })) { activeSession = null; refresh(); } } }, ['Discard']),
+      ]),
+      premiumEmpty({ title: 'No exercises in this session', text: 'Add an exercise from the library.', actionLabel: 'Add exercise', onAction: () => addExerciseToSession(refresh), graphic: 'muscle' }),
+    ]));
+    return;
+  }
+  s.currentIndex = Math.max(0, Math.min(s.currentIndex || 0, s.exercises.length - 1));
+  const ex = s.exercises[s.currentIndex];
+  const doneSets = s.exercises.reduce((n, e) => n + e.sets.filter(st => st.done).length, 0);
+  const totalSets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
   c.appendChild(el('div.card.card-glow', {}, [el('div.row.between', {}, [
-    el('div', {}, [el('div.label-cap.text-pink', { text: 'Live workout' }), el('h2', { text: s.dayLabel + ' · ' + fmtShort(s.date), style: { fontSize: '20px' } })]),
+    el('div', {}, [
+      el('div.label-cap.text-pink', { text: 'Live workout' }),
+      el('h2', { text: s.dayLabel + ' - ' + fmtShort(s.date), style: { fontSize: '20px' } }),
+      el('div.tiny.muted', { style: { marginTop: '6px' }, text: `${doneSets}/${totalSets} sets complete` }),
+    ]),
     el('button.btn.sm.ghost', { type: 'button', onclick: async () => { if (await confirmDialog('Discard this in-progress workout? Nothing will be saved.', { confirmLabel: 'Discard', kind: 'danger' })) { activeSession = null; refresh(); } } }, ['Discard']),
   ])]));
-  s.exercises.forEach((ex, ei) => c.appendChild(sessionExerciseCard(ex, ei, refresh)));
+  c.appendChild(el('div.session-progress', { style: { marginTop: '12px' } }, s.exercises.map((_, i) => el('span.session-dot' + (i <= s.currentIndex ? '.on' : '')))));
+  c.appendChild(sessionExerciseCard(ex, s.currentIndex, refresh));
+  c.appendChild(el('div.row.wrap', { style: { marginTop: '12px' } }, [
+    el('button.btn.ghost', { type: 'button', disabled: s.currentIndex === 0, onclick: () => { s.currentIndex--; refresh(); } }, ['Previous']),
+    el('button.btn.primary', { type: 'button', onclick: () => { completeNextSet(ex); if (ex.sets.every(st => st.done) && s.currentIndex < s.exercises.length - 1) s.currentIndex++; refresh(); } }, ['Complete next set']),
+    el('button.btn.ghost', { type: 'button', disabled: s.currentIndex >= s.exercises.length - 1, onclick: () => { s.currentIndex++; refresh(); } }, ['Next']),
+  ]));
   c.appendChild(el('button.btn.block.ghost', { type: 'button', style: { marginTop: '12px' }, onclick: () => addExerciseToSession(refresh) }, ['+ Add exercise']));
-  const noteTa = el('textarea', { rows: 2, placeholder: 'Session notes (energy, pumps, niggles)…' });
+  const noteTa = el('textarea', { rows: 2, placeholder: 'Session notes (energy, pumps, niggles)...' });
   noteTa.value = s.notes; noteTa.addEventListener('input', () => { s.notes = noteTa.value; });
   c.appendChild(el('div.card', { style: { marginTop: '12px' } }, [el('label.field', {}, [el('span.field-label', { text: 'Session notes' }), noteTa])]));
-  c.appendChild(el('button.btn.mint.block', { type: 'button', style: { margin: '14px 0 4px' }, onclick: () => completeSession(refresh) }, ['✓  Complete & save to history']));
+  c.appendChild(el('button.btn.mint.block', { type: 'button', style: { margin: '14px 0 4px' }, onclick: () => completeSession(refresh) }, ['Complete and save to history']));
+}
+
+function completeNextSet(ex) {
+  const next = ex.sets.find(st => !st.done);
+  if (!next) return;
+  next.done = true;
+  if (next.reps === '') next.reps = ex.targetReps || 0;
 }
 
 function sessionExerciseCard(ex, ei, refresh) {
   const card = el('div.card', { style: { marginTop: '12px' } });
+  card.appendChild(exerciseVisual(ex, 150));
   card.appendChild(el('div.row.between', {}, [
     el('div', {}, [el('div.ex-name', { text: ex.name }), ex.targetReps ? el('div.tiny.text-mint', { text: 'Target: ' + (ex.targetWeight != null ? ex.targetWeight + ' lb' : 'BW') + ' × ' + ex.targetReps + (ex.progNote ? ' · ' + ex.progNote : '') }) : null].filter(Boolean)),
     el('div.actions', {}, [
       ex.exerciseId ? el('button.icon-btn', { type: 'button', title: 'Swap exercise', onclick: () => swapSessionExercise(ei, refresh) }, ['⇄']) : null,
       el('button.icon-btn.danger', { type: 'button', title: 'Remove', onclick: () => { activeSession.exercises.splice(ei, 1); refresh(); } }, ['🗑']),
     ].filter(Boolean)),
+  ]));
+  card.appendChild(el('div.session-rest', {}, [
+    el('span', { text: 'Rest timer' }),
+    el('b.mono', { text: String(ex.restSec || 90) + 's' }),
+    el('small', { text: 'starts after each completed set' }),
   ]));
   card.appendChild(el('div.set-row', { style: { marginTop: '8px' } }, [el('div.set-n.label-cap', { text: '#' }), el('div.label-cap', { text: 'Weight' }), el('div.label-cap', { text: 'Reps' }), el('div.label-cap', { text: '✓' })]));
   ex.sets.forEach((set, si) => {
@@ -207,7 +348,7 @@ function swapSessionExercise(ei, refresh) {
     el('div.grow', {}, [el('div.title', { text: a.name }), el('div.meta', {}, [el('span.chip', { text: a.category }), el('span.chip.muted', { text: a.classification })])]),
     el('button.btn.sm.primary', { type: 'button', onclick: () => {
       const prog = suggestProgression(a, getExerciseHistory(d, a.id));
-      activeSession.exercises[ei] = { exerciseId: a.id, name: a.name, cues: a.cues, restSec: a.restSec, category: a.category, repLow: a.repLow, repHigh: a.repHigh, targetWeight: prog.targetWeight, targetReps: prog.targetReps, progNote: prog.note, notes: '', sets: Array.from({ length: a.defaultSets }, () => ({ weight: prog.targetWeight ?? '', reps: '', done: false })) };
+      activeSession.exercises[ei] = { exerciseId: a.id, name: a.name, cues: a.cues, restSec: a.restSec, category: a.category, primaryMuscle: a.primaryMuscle, equipment: a.equipment, classification: a.classification, imageUrl: a.imageUrl, repLow: a.repLow, repHigh: a.repHigh, targetWeight: prog.targetWeight, targetReps: prog.targetReps, progNote: prog.note, notes: '', sets: Array.from({ length: a.defaultSets }, () => ({ weight: prog.targetWeight ?? '', reps: '', done: false })) };
       closeTopModal(); refresh();
     } }, ['Swap']),
   ])));
@@ -221,7 +362,7 @@ function addExerciseToSession(refresh) {
     el('div.grow', {}, [el('div.title', { text: a.name }), el('div.meta', {}, [el('span.chip', { text: a.category }), el('span.chip.muted', { text: a.classification })])]),
     el('button.btn.sm.primary', { type: 'button', onclick: () => {
       const prog = suggestProgression(a, getExerciseHistory(d, a.id));
-      activeSession.exercises.push({ exerciseId: a.id, name: a.name, cues: a.cues, restSec: a.restSec, category: a.category, repLow: a.repLow, repHigh: a.repHigh, targetWeight: prog.targetWeight, targetReps: prog.targetReps, progNote: prog.note, notes: '', sets: Array.from({ length: a.defaultSets }, () => ({ weight: prog.targetWeight ?? '', reps: '', done: false })) });
+      activeSession.exercises.push({ exerciseId: a.id, name: a.name, cues: a.cues, restSec: a.restSec, category: a.category, primaryMuscle: a.primaryMuscle, equipment: a.equipment, classification: a.classification, imageUrl: a.imageUrl, repLow: a.repLow, repHigh: a.repHigh, targetWeight: prog.targetWeight, targetReps: prog.targetReps, progNote: prog.note, notes: '', sets: Array.from({ length: a.defaultSets }, () => ({ weight: prog.targetWeight ?? '', reps: '', done: false })) });
       closeTopModal(); refresh();
     } }, ['Add']),
   ])));
@@ -366,12 +507,34 @@ function editSplitDay(split, day, refresh) {
 function renderLibrary(c, refresh) {
   const d = loadData();
   const machineCount = d.exercises.filter(e => e.classification === 'machine' || e.classification === 'cable').length;
-  c.appendChild(el('div.row.between', { style: { marginBottom: '12px', flexWrap: 'wrap', gap: '8px' } }, [
-    el('p.muted.small', { text: `${d.exercises.length} exercises · ${machineCount} machine/cable` }),
-    el('button.btn.sm.primary', { type: 'button', onclick: () => editExercise(null, refresh) }, ['+ Add exercise']),
+  c.appendChild(el('div.card', { style: { marginBottom: '14px' } }, [
+    el('div.row.between', { style: { flexWrap: 'wrap', gap: '10px' } }, [
+      el('div', {}, [
+        el('div.label-cap', { text: 'Exercise library' }),
+        el('h2', { text: `${d.exercises.length} movements` }),
+        el('p.small.muted', { style: { marginTop: '6px' }, text: `${machineCount} machine/cable movements available.` }),
+      ]),
+      el('button.btn.sm.primary', { type: 'button', onclick: () => editExercise(null, refresh) }, ['Add exercise']),
+    ]),
+    el('div.grid.grid-3', { style: { marginTop: '14px' } }, [
+      librarySearch(refresh),
+      librarySelect('Muscle', libraryCategory, ['All', ...CATEGORIES], v => { libraryCategory = v; refresh(); }),
+      librarySelect('Type', libraryClass, ['All', ...CLASSIFICATIONS], v => { libraryClass = v; refresh(); }),
+    ]),
   ]));
+  const filtered = d.exercises.filter(ex => {
+    const q = libraryQuery.trim().toLowerCase();
+    const matchQ = !q || [ex.name, ex.category, ex.primaryMuscle, ex.equipment, ex.classification].some(v => String(v || '').toLowerCase().includes(q));
+    const matchCat = libraryCategory === 'All' || ex.category === libraryCategory;
+    const matchClass = libraryClass === 'All' || ex.classification === libraryClass;
+    return matchQ && matchCat && matchClass;
+  });
+  if (!filtered.length) {
+    c.appendChild(premiumEmpty({ title: 'No exercises match', text: 'Clear filters or add a movement.', actionLabel: 'Clear filters', onAction: () => { libraryQuery = ''; libraryCategory = 'All'; libraryClass = 'All'; refresh(); }, graphic: 'muscle' }));
+    return;
+  }
   const groups = {};
-  d.exercises.forEach(ex => { (groups[ex.category] = groups[ex.category] || []).push(ex); });
+  filtered.forEach(ex => { (groups[ex.category] = groups[ex.category] || []).push(ex); });
   CATEGORIES.filter(cat => groups[cat]).concat(Object.keys(groups).filter(k => !CATEGORIES.includes(k))).forEach(cat => {
     if (!groups[cat]) return;
     c.appendChild(el('div.section-head', {}, [el('h2.section-title.accent', { text: cat }), el('span.tiny.faint', { text: groups[cat].length + '' })]));
@@ -389,6 +552,19 @@ function renderLibrary(c, refresh) {
     ])));
     c.appendChild(grid);
   });
+}
+
+function librarySearch(refresh) {
+  const input = el('input', { placeholder: 'Search exercise, muscle, equipment...', value: libraryQuery, 'aria-label': 'Search exercise library' });
+  input.addEventListener('input', () => { libraryQuery = input.value; refresh(); });
+  return el('label.field', {}, [el('span.field-label', { text: 'Search' }), input]);
+}
+
+function librarySelect(label, value, options, onChange) {
+  const select = el('select', { value });
+  options.forEach(o => select.appendChild(el('option', { value: o, selected: o === value }, [o])));
+  select.addEventListener('change', () => onChange(select.value));
+  return el('label.field', {}, [el('span.field-label', { text: label }), select]);
 }
 
 function editExercise(ex, refresh) {

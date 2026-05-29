@@ -7,7 +7,7 @@
 
 import { todayKey, addDays, lastNDays } from './dates.js';
 
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 const T = todayKey();
 const yesterday = todayKey(addDays(new Date(), -1));
@@ -160,7 +160,7 @@ function sampleSupplements() {
 // ---- Full default data object --------------------------------------------
 export function emptyData() {
   return {
-    meta: { version: DATA_VERSION, seeded: false, createdAt: T },
+    meta: { version: DATA_VERSION, seeded: false, demoMode: false, createdAt: T },
     profile: { name: 'Dominic', bodyWeightGoalLow: 178, bodyWeightGoalHigh: 185 },
     settings: { water: { weightLbs: 175, age: 21, activity: 'high', caffeineMg: 200, bottleOz: 32, manualTargetOz: null } },
     dailyLogs: {},
@@ -204,10 +204,24 @@ export function emptyData() {
   };
 }
 
+// ---- Real-user starter state ---------------------------------------------
+// First load should feel premium and personal, not fake. Keep the gym engine
+// ready with the exercise library and a machine-first split, but leave the rest
+// of the life OS empty until the user adds real data.
+export function starterData() {
+  const d = emptyData();
+  d.exercises = exList();
+  const split = sampleSplit();
+  d.splits = [split];
+  d.activeSplitId = split.id;
+  return d;
+}
+
 // ---- Demo seed (clearly-labeled sample data) -----------------------------
 export function seedData() {
   const d = emptyData();
   d.meta.seeded = true;
+  d.meta.demoMode = true;
 
   d.dailyLogs[T] = {
     date: T, mode: 'Deep Work',
