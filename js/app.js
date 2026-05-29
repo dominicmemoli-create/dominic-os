@@ -1,6 +1,6 @@
 // app.js — shell, navigation, hash router. Entry point (loaded as a module).
 
-import { el, clear } from './ui.js';
+import { el, clear, openModal } from './ui.js';
 import { loadData } from './store.js';
 import { renderTicker } from './ticker.js';
 
@@ -73,13 +73,50 @@ function buildSidebar(active) {
 function buildBottomNav(active) {
   const nav = document.getElementById('bottomnav');
   clear(nav);
-  ROUTES.forEach(r => {
+  const primary = ['today', 'gym', 'health', 'productivity', 'review'];
+  const routes = ROUTES.filter(r => primary.includes(r.id));
+  routes.forEach(r => {
     const btn = el('button.nav-item' + (r.id === active.id ? '.active' : ''), {
       type: 'button', 'aria-label': r.label, onclick: () => { location.hash = '#/' + r.id; },
     });
     btn.appendChild(svgIcon(r.icon));
     btn.appendChild(el('span', { text: r.shortLabel || r.label }));
     nav.appendChild(btn);
+  });
+  const moreActive = !primary.includes(active.id);
+  const more = el('button.nav-item' + (moreActive ? '.active' : ''), {
+    type: 'button',
+    'aria-label': 'More',
+    onclick: openMoreNav,
+  });
+  more.appendChild(svgIcon('admin'));
+  more.appendChild(el('span', { text: 'More' }));
+  nav.appendChild(more);
+}
+
+function openMoreNav() {
+  const list = el('div.list');
+  ROUTES.filter(r => ['school', 'admin'].includes(r.id)).forEach(r => {
+    const row = el('button.side-item', {
+      type: 'button',
+      onclick: () => {
+        location.hash = '#/' + r.id;
+        const top = document.querySelectorAll('.modal-overlay');
+        const modal = top[top.length - 1];
+        if (modal) {
+          modal.classList.remove('show');
+          setTimeout(() => modal.remove(), 180);
+        }
+      },
+    });
+    row.appendChild(svgIcon(r.icon));
+    row.appendChild(el('span', { text: r.label }));
+    list.appendChild(row);
+  });
+  openModal({
+    title: 'More',
+    body: list,
+    actions: [{ label: 'Close', kind: 'ghost', onClick: () => true }],
   });
 }
 
