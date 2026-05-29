@@ -1,51 +1,189 @@
-// health.js — supplements, water, sleep/recovery + readiness (Tier 1).
+// health.js - recovery, hydration, supplements, and wearable-ready shell.
 
 import { el, clear, toast, openModal, buildForm, confirmDialog, uid } from '../ui.js';
 import { loadData, mutate, updateItem, deleteItem } from '../store.js';
 import { todayKey, fmtShort, lastNDays } from '../dates.js';
 import {
-  supplementStatus, TIMING_WINDOWS, TIMING_ORDER, waterTarget, waterToday,
-  readinessScore, latestRecovery,
+  supplementStatus,
+  TIMING_WINDOWS,
+  TIMING_ORDER,
+  waterTarget,
+  waterToday,
+  readinessScore,
+  latestRecovery,
 } from '../compute.js';
-import { sparkline } from '../components.js';
+import { pageHero, pageGraphic, statTile, premiumEmpty, sparkline, visibleItems } from '../components.js';
 import { isConnected, WEARABLE_STATUS } from '../wearableProvider.js';
 
-const TIMING_ICON = { morning: '☀', lunch: '🍴', evening: '🌙', anytime: '∞' };
+const TIMING_LABEL = { morning: 'Morning', lunch: 'Lunch', evening: 'Evening', anytime: 'Anytime' };
 
 export function render(main) {
   const refresh = () => render(main);
   clear(main);
-  main.appendChild(el('div.page-head', {}, [
-    el('div.eyebrow', { text: 'Recovery · fuel · readiness' }),
-    el('h1', { text: 'Health' }),
-  ]));
+  const d = loadData();
+  const latest = latestRecovery({ ...d, sleepRecoveryLogs: visibleItems(d, d.sleepRecoveryLogs) });
+  const ready = readinessScore(latest);
+  const water = waterToday(d);
+  const sups = visibleItems(d, d.supplements);
 
-  renderSupplements(main, refresh);
+  main.appendChild(pageHero({
+    kicker: 'Health Intelligence',
+    title: 'Optimize biology.',
+    subtitle: 'Recovery, hydration, supplements, wearable shell.',
+    tone: 'cool',
+    graphic: pageGraphic('recovery', { score: ready.score ?? 82, fill: water.percent || 45, label: 'Readiness' }),
+    actions: [
+      el('button.btn.primary', { type: 'button', onclick: () => logRecovery(refresh) }, ['Log recovery']),
+      el('button.btn.ghost', { type: 'button', onclick: () => editSupplement(null, refresh) }, ['Add supplement']),
+    ],
+    metrics: [
+      statTile('Readiness', ready.score ?? '--', ready.call || 'manual', 'mint'),
+      statTile('Sleep', latest?.durationH ? latest.durationH + 'h' : '--', 'last log', 'sky'),
+      statTile('Hydration', water.percent + '%', `${water.intake}/${water.target} oz`, 'sky'),
+      statTile('Stack', sups.length, 'supplements', 'amber'),
+    ],
+  }));
+
+  renderRecovery(main, refresh, d, latest, ready);
   renderWater(main, refresh);
-  renderRecovery(main, refresh);
+  renderSupplements(main, refresh, sups);
   renderWearableCard(main);
 
-  main.appendChild(el('p.tiny.faint.center', { style: { marginTop: '20px' },
-    text: 'Dominic OS tracks what you log. It is not medical advice — consult a professional for health decisions.' }));
+  main.appendChild(el('p.tiny.faint.center', {
+    style: { marginTop: '20px' },
+    text: 'Dominic OS tracks what you log. It is not medical advice.',
+  }));
 }
 
-/* ---------------- SUPPLEMENTS ---------------- */
-function renderSupplements(main, refresh) {
+function renderRecovery(main, refresh, d, latest, ready) {
+  main.appendChild(el('div.section-head', {}, [
+    el('h2.section-title', { text: 'Recovery' }),
+    el('button.btn.sm.primary', { type: 'button', onclick: () => logRecovery(refresh) }, ['Log']),
+  ]));
+
+  const card = el('div.card.card-glow');
+  if (ready.score == null) {
+    card.appendChild(premiumEmpty({
+      title: 'No recovery log yet',
+      text: 'Log sleep, HRV, RHR, steps, soreness, and mood to get a training call.',
+      actionLabel: 'Log recovery',
+      onAction: () => logRecovery(refresh),
+      graphic: 'recovery',
+    }));
+  } else {
+    card.appendChild(el('div.row.between', {}, [
+      el('div', {}, [
+        el('div.label-cap', { text: latest.date === todayKey() ? 'Today' : fmtShort(latest.date) }),
+        el('div.big-num', { text: ready.score }),
+        el('div.readiness-call', { class: 'call-' + ready.call.toLowerCase(), text: ready.call + ' day' }),
+      ]),
+      pageGraphic('recovery', { score: ready.score, fill: 62, label: 'Ready' }),
+    ]));
+    card.appendChild(el('div.grid.grid-3', { style: { marginTop: '14px' } }, [
+      statTile('Sleep', latest.durationH + 'h', 'duration', 'sky'),
+      statTile('HRV', latest.hrv || '--', 'ms', 'mint'),
+      statTile('RHR', latest.rhr || '--', 'bpm', 'amber'),
+    ]));
+  }
+  main.appendChild(card);
+
+  const logs = visibleItems(d, d.sleepRecoveryLogs).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6);
+  if (logs.length) {
+    main.appendChild(el('div.card.list', { style: { marginTop: '14px' } }, logs.map(l => {
+      const lr = readinessScore(l);
+      return el('div.item', {}, [
+        el('div.grow', {}, [
+          el('div.title', { text: `${fmtShort(l.date)} - ${l.durationH}h` }),
+          el('div.meta', {}, [
+            el('span', { text: 'RHR ' + (l.rhr || '--') }),
+            el('span', { text: 'HRV ' + (l.hrv || '--') }),
+            el('span', { text: (l.steps || 0) + ' steps' }),
+          ]),
+        ]),
+        el('div.center', {}, [
+          el('div.kpi', { class: 'call-' + lr.call.toLowerCase(), text: lr.score }),
+          el('div.tiny.faint', { text: lr.call }),
+        ]),
+        el('button.icon-btn.danger', { type: 'button', onclick: async () => { if (await confirmDialog('Delete this log?')) { deleteItem('sleepRecoveryLogs', l.id); refresh(); } } }, ['Del']),
+      ]);
+    })));
+  }
+}
+
+function renderWater(main, refresh) {
   const d = loadData();
-  const status = supplementStatus(d);
+  const w = d.settings.water;
+  const target = waterTarget(w);
+  const wt = waterToday(d);
 
   main.appendChild(el('div.section-head', {}, [
-    el('h2.section-title', { text: 'Supplement stack' }),
-    el('button.btn.sm.primary', { type: 'button', onclick: () => editSupplement(null, refresh) }, ['+ Add']),
+    el('h2.section-title.accent', { text: 'Hydration' }),
+    el('button.btn.sm.ghost', { type: 'button', onclick: () => editWaterSettings(refresh) }, ['Settings']),
   ]));
-  main.appendChild(el('div.row.between', { style: { marginBottom: '12px' } }, [
-    el('span.chip.mint', { text: `${status.takenCount}/${status.total} taken today` }),
-    status.missed.length ? el('span.chip.pink', { text: `${status.missed.length} missed` }) : null,
-    status.lowCount ? el('span.chip.amber', { text: `${status.lowCount} running low` }) : null,
-  ].filter(Boolean)));
 
-  if (!status.total) {
-    main.appendChild(el('div.empty', {}, [el('p', { text: 'No supplements yet. Add your stack.' })]));
+  const card = el('div.card');
+  card.appendChild(el('div.grid.grid-2', {}, [
+    el('div.water-display', {}, [
+      el('div.big-num', { class: wt.percent >= 100 ? 'text-mint' : '', text: wt.intake + ' / ' + wt.target }),
+      el('div.tiny.muted', { text: 'ounces today' }),
+      el('div.bar', { style: { marginTop: '12px' } }, [el('span', { style: { width: wt.percent + '%' } })]),
+    ]),
+    pageGraphic('recovery', { score: wt.percent, fill: wt.percent || 22, label: 'Water' }),
+  ]));
+  const add = (oz) => {
+    mutate(x => {
+      const t = todayKey();
+      const log = x.waterLogs[t] = x.waterLogs[t] || { targetOz: wt.target, intakeOz: 0 };
+      log.intakeOz = Math.max(0, (log.intakeOz || 0) + oz);
+      log.targetOz = wt.target;
+    });
+    refresh();
+  };
+  card.appendChild(el('div.water-controls', {}, [
+    el('button.btn.mint', { type: 'button', onclick: () => add(w.bottleOz || 32) }, ['+' + (w.bottleOz || 32) + ' bottle']),
+    el('button.btn', { type: 'button', onclick: () => add(16) }, ['+16']),
+    el('button.btn', { type: 'button', onclick: () => add(8) }, ['+8']),
+    el('button.btn.ghost', { type: 'button', onclick: () => add(-8) }, ['-8']),
+  ]));
+  card.appendChild(el('div', { style: { marginTop: '14px' } }, [
+    el('div.label-cap', { text: 'Target formula' }),
+    ...target.breakdown.map(([label, val]) => el('div.row.between', { style: { padding: '3px 0' } }, [
+      el('span.tiny.muted', { text: label }),
+      el('span.tiny', { text: '+' + val + ' oz' }),
+    ])),
+  ]));
+  main.appendChild(card);
+
+  const days = lastNDays(14);
+  const hist = days.map(dk => d.waterLogs[dk]?.intakeOz || 0);
+  if (hist.some(v => v > 0)) {
+    main.appendChild(el('div.card', { style: { marginTop: '14px' } }, [
+      el('div.row.between', { style: { marginBottom: '8px' } }, [
+        el('div.label-cap', { text: '14-day intake' }),
+        el('span.tiny.faint', { text: 'target ' + target.targetOz + ' oz' }),
+      ]),
+      sparkline(hist, true),
+    ]));
+  }
+}
+
+function renderSupplements(main, refresh, sups) {
+  const d = loadData();
+  const status = supplementStatus({ ...d, supplements: sups });
+
+  main.appendChild(el('div.section-head', {}, [
+    el('h2.section-title', { text: 'Supplement timeline' }),
+    el('button.btn.sm.primary', { type: 'button', onclick: () => editSupplement(null, refresh) }, ['Add']),
+  ]));
+
+  if (!sups.length) {
+    main.appendChild(premiumEmpty({
+      title: 'No supplement stack yet',
+      text: 'Add only the stack you actually take. Demo data stays behind Load demo.',
+      actionLabel: 'Add supplement',
+      onAction: () => editSupplement(null, refresh),
+      graphic: 'recovery',
+    }));
     return;
   }
 
@@ -54,29 +192,32 @@ function renderSupplements(main, refresh) {
     if (!items.length) return;
     const group = el('div.timing-group');
     group.appendChild(el('div.timing-head', {}, [
-      el('span', { text: TIMING_ICON[timing], style: { fontSize: '14px' } }),
-      el('span.label-cap', { text: TIMING_WINDOWS[timing].label }),
+      el('span.label-cap', { text: TIMING_LABEL[timing] || TIMING_WINDOWS[timing].label }),
     ]));
     const card = el('div.card.list');
-    items.forEach(s => {
-      const row = el('div.item' + (s.missed ? '.sup-missed' : ''), { style: s.missed ? { borderRadius: '10px', padding: '11px' } : {} }, [
-        el('input.check', { type: 'checkbox', checked: s.taken, 'aria-label': 'taken',
-          onchange: () => { mutate(x => { x.supplementLog[todayKey()] = x.supplementLog[todayKey()] || {}; if (s.taken) delete x.supplementLog[todayKey()][s.id]; else x.supplementLog[todayKey()][s.id] = true; }); refresh(); } }),
-        el('div.grow', {}, [
-          el('div.title' + (s.taken ? '.strike' : ''), { text: s.name }),
-          el('div.meta', {}, [el('span', { text: s.dose }), s.missed ? el('span.text-pink', { text: 'MISSED — window passed' }) : null, s.runningLow ? el('span.text-amber', { text: 'running low' }) : null].filter(Boolean)),
-        ]),
-        el('div.actions', {}, [
-          el('button.icon-btn', { type: 'button', title: s.runningLow ? 'Mark restocked' : 'Mark running low', onclick: () => { updateItem('supplements', { id: s.id, runningLow: !s.runningLow }); toast(s.runningLow ? 'Marked restocked' : 'Flagged to restock'); refresh(); } }, [s.runningLow ? '✓' : '⚑']),
-          el('button.icon-btn', { type: 'button', title: 'Edit', onclick: () => editSupplement(s, refresh) }, ['✎']),
-          el('button.icon-btn.danger', { type: 'button', title: 'Delete', onclick: async () => { if (await confirmDialog(`Delete ${s.name}?`)) { deleteItem('supplements', s.id); refresh(); } } }, ['🗑']),
-        ]),
-      ]);
-      card.appendChild(row);
-    });
+    items.forEach(s => card.appendChild(supplementRow(s, refresh)));
     group.appendChild(card);
     main.appendChild(group);
   });
+}
+
+function supplementRow(s, refresh) {
+  return el('div.item' + (s.missed ? '.sup-missed' : ''), {}, [
+    el('input.check', { type: 'checkbox', checked: s.taken, 'aria-label': 'taken', onchange: () => { mutate(x => { x.supplementLog[todayKey()] = x.supplementLog[todayKey()] || {}; if (s.taken) delete x.supplementLog[todayKey()][s.id]; else x.supplementLog[todayKey()][s.id] = true; }); refresh(); } }),
+    el('div.grow', {}, [
+      el('div.title' + (s.taken ? '.strike' : ''), { text: s.name }),
+      el('div.meta', {}, [
+        el('span', { text: s.dose || 'dose not set' }),
+        s.missed ? el('span.text-pink', { text: 'window passed' }) : null,
+        s.runningLow ? el('span.text-amber', { text: 'running low' }) : null,
+      ].filter(Boolean)),
+    ]),
+    el('div.actions', {}, [
+      el('button.icon-btn', { type: 'button', onclick: () => { updateItem('supplements', { id: s.id, runningLow: !s.runningLow }); toast(s.runningLow ? 'Restocked' : 'Flagged'); refresh(); } }, [s.runningLow ? 'OK' : 'Low']),
+      el('button.icon-btn', { type: 'button', onclick: () => editSupplement(s, refresh) }, ['Edit']),
+      el('button.icon-btn.danger', { type: 'button', onclick: async () => { if (await confirmDialog(`Delete ${s.name}?`)) { deleteItem('supplements', s.id); refresh(); } } }, ['Del']),
+    ]),
+  ]);
 }
 
 function editSupplement(s, refresh) {
@@ -89,56 +230,8 @@ function editSupplement(s, refresh) {
   ]);
   openModal({ title: isNew ? 'New supplement' : s.name, body: form, actions: [
     { label: 'Cancel', kind: 'ghost', onClick: () => true },
-    { label: isNew ? 'Add' : 'Save', kind: 'primary', onClick: () => {
-      if (!validate()) return false; const v = values();
-      updateItem('supplements', { id: s?.id || uid('sup'), ...v });
-      toast('Saved', 'ok'); refresh();
-    } },
+    { label: isNew ? 'Add' : 'Save', kind: 'primary', onClick: () => { if (!validate()) return false; updateItem('supplements', { id: s?.id || uid('sup'), ...values() }); toast('Saved', 'ok'); refresh(); } },
   ] });
-}
-
-/* ---------------- WATER ---------------- */
-function renderWater(main, refresh) {
-  const d = loadData();
-  const w = d.settings.water;
-  const target = waterTarget(w);
-  const wt = waterToday(d);
-
-  main.appendChild(el('div.section-head', {}, [
-    el('h2.section-title.accent', { text: 'Water' }),
-    el('button.btn.sm.ghost', { type: 'button', onclick: () => editWaterSettings(refresh) }, ['⚙ Settings']),
-  ]));
-
-  const card = el('div.card');
-  card.appendChild(el('div.water-display', {}, [
-    el('div.big-num', { class: wt.percent >= 100 ? 'text-mint' : '', text: wt.intake + ' / ' + wt.target }),
-    el('div.tiny.muted', { text: 'ounces today' }),
-    el('div.bar', { style: { marginTop: '12px' } }, [el('span', { style: { width: wt.percent + '%' } })]),
-  ]));
-  const add = (oz) => { mutate(x => { const t = todayKey(); const log = x.waterLogs[t] = x.waterLogs[t] || { targetOz: wt.target, intakeOz: 0 }; log.intakeOz = Math.max(0, (log.intakeOz || 0) + oz); log.targetOz = wt.target; }); refresh(); };
-  card.appendChild(el('div.water-controls', {}, [
-    el('button.btn.mint', { type: 'button', onclick: () => add(w.bottleOz || 32) }, ['+' + (w.bottleOz || 32) + ' bottle']),
-    el('button.btn', { type: 'button', onclick: () => add(16) }, ['+16']),
-    el('button.btn', { type: 'button', onclick: () => add(8) }, ['+8']),
-    el('button.btn.ghost', { type: 'button', onclick: () => add(-8) }, ['−8']),
-  ]));
-
-  // transparent target breakdown
-  const bd = el('div', { style: { marginTop: '14px' } }, [el('div.label-cap', { text: 'How your target is calculated' })]);
-  target.breakdown.forEach(([label, val]) => bd.appendChild(el('div.row.between', { style: { padding: '3px 0' } }, [el('span.tiny.muted', { text: label }), el('span.tiny', { text: '+' + val + ' oz' })])));
-  bd.appendChild(el('div.row.between', { style: { padding: '5px 0 0', borderTop: '1px solid var(--border)', marginTop: '4px' } }, [el('span.tiny', { text: 'Daily target' }), el('span.tiny.text-mint', { text: target.targetOz + ' oz' })]));
-  card.appendChild(bd);
-  main.appendChild(card);
-
-  // 14-day history
-  const days = lastNDays(14);
-  const hist = days.map(dk => d.waterLogs[dk]?.intakeOz || 0);
-  if (hist.some(v => v > 0)) {
-    main.appendChild(el('div.card', { style: { marginTop: '12px' } }, [
-      el('div.row.between', { style: { marginBottom: '8px' } }, [el('div.label-cap', { text: '14-day intake' }), el('span.tiny.faint', { text: 'target ' + target.targetOz + ' oz' })]),
-      sparkline(hist, true),
-    ]));
-  }
 }
 
 function editWaterSettings(refresh) {
@@ -149,63 +242,12 @@ function editWaterSettings(refresh) {
     { name: 'activity', label: 'Activity level', type: 'select', value: w.activity, options: [{ value: 'low', label: 'Low' }, { value: 'moderate', label: 'Moderate' }, { value: 'high', label: 'High (training)' }] },
     { name: 'caffeineMg', label: 'Caffeine (mg/day)', type: 'number', value: w.caffeineMg, min: 0 },
     { name: 'bottleOz', label: 'Bottle size (oz)', type: 'number', value: w.bottleOz, min: 1 },
-    { name: 'manualTargetOz', label: 'Manual target (oz, optional)', type: 'number', value: w.manualTargetOz ?? '', hint: 'Leave blank to auto-calculate.' },
+    { name: 'manualTargetOz', label: 'Manual target (oz, optional)', type: 'number', value: w.manualTargetOz ?? '' },
   ]);
   openModal({ title: 'Water settings', body: form, actions: [
     { label: 'Cancel', kind: 'ghost', onClick: () => true },
-    { label: 'Save', kind: 'primary', onClick: () => {
-      const v = values();
-      mutate(x => { x.settings.water = { ...x.settings.water, weightLbs: v.weightLbs, age: v.age, activity: v.activity, caffeineMg: v.caffeineMg, bottleOz: v.bottleOz, manualTargetOz: v.manualTargetOz || null }; });
-      toast('Saved', 'ok'); refresh();
-    } },
+    { label: 'Save', kind: 'primary', onClick: () => { const v = values(); mutate(x => { x.settings.water = { ...x.settings.water, weightLbs: v.weightLbs, age: v.age, activity: v.activity, caffeineMg: v.caffeineMg, bottleOz: v.bottleOz, manualTargetOz: v.manualTargetOz || null }; }); toast('Saved', 'ok'); refresh(); } },
   ] });
-}
-
-/* ---------------- SLEEP / RECOVERY ---------------- */
-function renderRecovery(main, refresh) {
-  const d = loadData();
-  const latest = latestRecovery(d);
-  const r = readinessScore(latest);
-
-  main.appendChild(el('div.section-head', {}, [
-    el('h2.section-title', { text: 'Sleep & recovery' }),
-    el('button.btn.sm.primary', { type: 'button', onclick: () => logRecovery(refresh) }, ['Log today']),
-  ]));
-
-  const card = el('div.card.card-glow');
-  if (r.score == null) {
-    card.appendChild(el('p.muted', { text: 'Log last night to get a readiness score and a training call.' }));
-  } else {
-    card.appendChild(el('div.row.between', {}, [
-      el('div', {}, [
-        el('div.label-cap', { text: 'Readiness · ' + (latest.date === todayKey() ? 'today' : fmtShort(latest.date)) }),
-        el('div.big-num', { text: r.score }),
-        el('div.readiness-call', { class: 'call-' + r.call.toLowerCase(), text: r.call + ' day' }),
-      ]),
-      el('div', { style: { textAlign: 'right' } }, [
-        el('div.tiny.muted', { text: latest.durationH + 'h sleep · Q' + latest.quality + '/5' }),
-        el('div.tiny.muted', { text: 'RHR ' + (latest.rhr || '—') + ' · HRV ' + (latest.hrv || '—') }),
-        el('div.tiny.muted', { text: 'Sore ' + (latest.soreness || '—') + '/5 · Mood ' + (latest.mood || '—') + '/5' }),
-      ]),
-    ]));
-    card.appendChild(el('div.bar', { class: r.call === 'Recover' ? 'pink' : (r.call === 'Push' ? '' : 'amber'), style: { marginTop: '12px' } }, [el('span', { style: { width: r.score + '%' } })]));
-  }
-  main.appendChild(card);
-
-  // recent
-  const logs = [...(d.sleepRecoveryLogs || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6);
-  if (logs.length) {
-    const list = el('div.card.list', { style: { marginTop: '12px' } });
-    logs.forEach(l => {
-      const lr = readinessScore(l);
-      list.appendChild(el('div.item', {}, [
-        el('div.grow', {}, [el('div.title', { text: fmtShort(l.date) + ' · ' + l.durationH + 'h' }), el('div.meta', {}, [el('span', { text: 'RHR ' + (l.rhr || '—') }), el('span', { text: 'HRV ' + (l.hrv || '—') }), el('span', { text: (l.steps || 0) + ' steps' })])]),
-        el('div.center', {}, [el('div.kpi', { class: 'call-' + lr.call.toLowerCase(), text: lr.score }), el('div.tiny.faint', { text: lr.call })]),
-        el('button.icon-btn.danger', { type: 'button', onclick: async () => { if (await confirmDialog('Delete this log?')) { deleteItem('sleepRecoveryLogs', l.id); refresh(); } } }, ['🗑']),
-      ]));
-    });
-    main.appendChild(list);
-  }
 }
 
 function logRecovery(refresh) {
@@ -220,48 +262,22 @@ function logRecovery(refresh) {
     { name: 'soreness', label: 'Soreness (1-5, 5=worst)', type: 'number', value: existing?.soreness ?? 2, min: 1, max: 5 },
     { name: 'mood', label: 'Mood (1-5)', type: 'number', value: existing?.mood ?? 4, min: 1, max: 5 },
   ]);
-  // live readiness preview
-  const preview = el('div.card.tight', { style: { marginTop: '4px' } });
-  const updatePreview = () => {
-    const v = values();
-    const r = readinessScore(v);
-    clear(preview).appendChild(el('div.row.between', {}, [el('span.label-cap', { text: 'Projected readiness' }), el('span.kpi', { class: 'call-' + r.call.toLowerCase(), text: r.score + ' · ' + r.call })]));
-  };
-  form.addEventListener('input', updatePreview);
-  const body = el('div', {}, [form, preview]);
-  setTimeout(updatePreview, 0);
-
-  openModal({ title: 'Log sleep & recovery', wide: true, body, actions: [
+  openModal({ title: 'Log sleep and recovery', wide: true, body: form, actions: [
     { label: 'Cancel', kind: 'ghost', onClick: () => true },
-    { label: 'Save', kind: 'primary', onClick: () => {
-      const v = values();
-      const r = readinessScore(v);
-      updateItem('sleepRecoveryLogs', { id: existing?.id || ('sr_' + t), date: t, ...v, readiness: r.score, call: r.call });
-      toast('Recovery logged', 'ok'); refresh();
-    } },
+    { label: 'Save', kind: 'primary', onClick: () => { const v = values(); const r = readinessScore(v); updateItem('sleepRecoveryLogs', { id: existing?.id || ('sr_' + t), date: t, ...v, readiness: r.score, call: r.call }); toast('Recovery logged', 'ok'); refresh(); } },
   ] });
 }
 
-/* ---------------- WEARABLE PREP ---------------- */
 function renderWearableCard(main) {
   main.appendChild(el('div.section-head', {}, [el('h2.section-title', { text: 'Wearable sync' })]));
   main.appendChild(el('div.card', {}, [
     el('div.row.between', {}, [
-      el('div.label-cap', { text: 'Status' }),
-      el('span.chip', { class: isConnected() ? 'mint' : 'muted', text: isConnected() ? WEARABLE_STATUS.provider : 'Manual entry (V1)' }),
+      el('div', {}, [
+        el('div.label-cap', { text: 'Future connection' }),
+        el('h2', { text: isConnected() ? WEARABLE_STATUS.provider : 'Manual mode' }),
+      ]),
+      el('span.chip', { class: isConnected() ? 'mint' : 'muted', text: isConnected() ? 'Connected' : 'V1' }),
     ]),
-    el('div', { style: { marginTop: '12px' } }, [
-      roadmapRow('V1 · now', 'Manual entry', 'Log sleep, RHR, HRV, steps by hand. Active today.', true),
-      roadmapRow('V2 · next', 'CSV import', 'Drop a WHOOP/Fitbit export to backfill recovery logs.', false),
-      roadmapRow('V3 · later', 'Live API', 'Google Health Connect / Health API (not the deprecated Google Fit). Requires your credentials.', false),
-    ]),
-    el('p.tiny.faint', { style: { marginTop: '12px' }, text: 'No accounts connected, no secrets stored. Full plan in NEXT_STEPS.md.' }),
+    el('p.small.muted', { style: { marginTop: '10px' }, text: 'No accounts connected and no secrets stored. CSV/API sync can be added later without changing the tracking model.' }),
   ]));
-}
-
-function roadmapRow(stage, title, desc, active) {
-  return el('div.row', { style: { gap: '12px', padding: '8px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-start' } }, [
-    el('span.chip', { class: active ? 'mint' : 'muted', text: stage, style: { flex: 'none', marginTop: '2px' } }),
-    el('div.grow', {}, [el('div.title', { text: title }), el('div.tiny.muted', { text: desc })]),
-  ]);
 }

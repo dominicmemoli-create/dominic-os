@@ -14,7 +14,9 @@ desktop.ini
 node_modules/
 npm-debug.log*
 *.log
-.tmp-edge-audit-*/
+.tmp-edge-*/
+.tmp-chrome-*/
+.tmp-server.*
 
 # Local backups exported from the app
 *.backup.json

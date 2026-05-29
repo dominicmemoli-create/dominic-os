@@ -96,3 +96,31 @@ Major gaps versus the concept:
 6. Rework mobile nav into a safe-area-aware premium dock with five primary tabs plus More, larger tap targets, and no clipped labels.
 7. Add defensive mobile CSS for no overflow: strict max widths, `min-width: 0`, `overflow-wrap`, mobile-first grids, modal max-height, form sizing, and bottom padding tied to nav height.
 8. Re-run all route/viewport checks, console checks, localStorage persistence checks, import/export checks, demo mode checks, and GitHub Pages path checks.
+
+## Post-Redesign Audit
+
+Post-redesign screenshots were captured for all 35 route/viewport combinations in `audit-screenshots/post/`.
+
+- `audit-screenshots/post/today-375x812.png`
+- `audit-screenshots/post/productivity-375x812.png`
+- `audit-screenshots/post/gym-375x812.png`
+- `audit-screenshots/post/health-375x812.png`
+- `audit-screenshots/post/school-375x812.png`
+- `audit-screenshots/post/admin-375x812.png`
+- `audit-screenshots/post/review-375x812.png`
+- The same seven routes were also captured at `390x844`, `430x932`, `768x1024`, and `1440x900`.
+
+### What Changed
+
+- The default app now opens in real-user mode with no fake non-gym records.
+- Non-gym pages use premium empty states, concise forms, metrics, and intentional graphics.
+- Gym is now the visual centerpiece with a cinematic workout hero, weekly split rail, visual exercise cards, live workout focus mode, and polished library filters.
+- Mobile hero graphics were converted into background artwork on phones to avoid pushing controls below the fold.
+- The mobile nav is now five primary tabs plus More, with larger touch targets and safe-area bottom positioning.
+- Exercise visuals are generated locally and never depend on remote images.
+
+### Remaining Notes
+
+- Browser plugin automation and Edge CDP were attempted but did not run reliably in this sandbox; Chrome headless CLI was used for screenshot capture.
+- CDP DOM evaluation was unavailable, so overflow/console verification used visual screenshots, JS syntax checks, route import checks, and local server smoke checks.
+- The nav intentionally floats over the viewport like the concept image. Main content has bottom padding so final controls are not unreachable behind it.

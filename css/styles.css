@@ -452,12 +452,38 @@ img, video, canvas, svg { max-width: 100%; display: block; }
 .hero-panel.cool { background: linear-gradient(145deg, rgba(114, 217, 255, 0.13), rgba(109, 255, 182, 0.07), rgba(255, 255, 255, 0.04)); }
 .hero-panel.violet { background: linear-gradient(145deg, rgba(167, 139, 250, 0.12), rgba(114, 217, 255, 0.06), rgba(255, 255, 255, 0.04)); }
 
-.hero-copy { align-self: center; }
+.hero-copy { max-width: 100%; align-self: center; }
 .hero-kicker { margin-bottom: 10px; color: var(--green); font-family: var(--mono); font-size: var(--text-xs); font-weight: 760; text-transform: uppercase; }
-.hero-title { font-size: var(--text-3xl); }
-.hero-sub { max-width: 620px; margin-top: 10px; color: var(--muted); font-size: var(--text-md); }
+.hero-title {
+  width: 100%;
+  max-width: min(100%, calc(100vw - 68px));
+  font-size: var(--text-3xl);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hero-sub {
+  width: 100%;
+  max-width: min(620px, calc(100vw - 68px));
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-.hero-visual { min-height: 170px; display: grid; place-items: center; }
+.hero-visual {
+  position: absolute;
+  right: -22px;
+  bottom: -26px;
+  z-index: 0;
+  width: min(54vw, 220px);
+  height: 178px;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  opacity: 0.58;
+  pointer-events: none;
+}
 
 .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
 .metric-tile { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius); padding: 13px; background: rgba(0, 0, 0, 0.18); }
@@ -710,7 +736,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(109, 255, 182, 0.
 .mode-ico { display: block; margin-bottom: 4px; font-size: 20px; }
 
 /* Page graphics */
-.orbital-graphic, .focus-graphic, .recovery-graphic, .semester-graphic, .control-graphic, .analytics-graphic, .muscle-map { width: min(100%, 280px); aspect-ratio: 1; position: relative; display: grid; place-items: center; }
+.orbital-graphic, .focus-graphic, .recovery-graphic, .semester-graphic, .control-graphic, .analytics-graphic, .muscle-map { width: min(100%, 220px); aspect-ratio: 1; position: relative; display: grid; place-items: center; }
 .orbital-graphic::before, .orbital-graphic::after, .focus-graphic::before, .recovery-graphic::before, .analytics-graphic::before, .muscle-map::before { content: ""; position: absolute; inset: 14%; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.13); }
 .orbital-core { width: 48%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(109, 255, 182, 0.22), rgba(114, 217, 255, 0.08) 68%, transparent); border: 1px solid rgba(109, 255, 182, 0.24); box-shadow: var(--glow-green), inset 0 0 34px rgba(114, 217, 255, 0.12); }
 .orbital-core span { color: var(--text); font-family: var(--mono); font-size: 28px; font-weight: 840; }
@@ -736,7 +762,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(109, 255, 182, 0.
 .control-cell:nth-child(2), .control-cell:nth-child(5) { background: rgba(109, 255, 182, 0.12); }
 .control-cell:nth-child(3), .control-cell:nth-child(7) { background: rgba(114, 217, 255, 0.1); }
 .analytics-web { width: 74%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 18deg, rgba(109, 255, 182, 0.42), rgba(114, 217, 255, 0.14), rgba(255, 209, 102, 0.28), rgba(255, 95, 122, 0.18), rgba(109, 255, 182, 0.42)); clip-path: polygon(50% 6%, 88% 24%, 80% 70%, 50% 94%, 16% 74%, 12% 28%); box-shadow: var(--glow-cyan); }
-.muscle-map { width: min(100%, 310px); aspect-ratio: 0.74; }
+.muscle-map { width: min(100%, 220px); aspect-ratio: 1.08; }
 .muscle-body { width: 46%; height: 82%; position: relative; border-radius: 44% 44% 38% 38%; background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(109, 255, 182, 0.1)); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 36px rgba(114, 217, 255, 0.09); }
 .muscle-body::before { content: ""; position: absolute; width: 36%; aspect-ratio: 1; left: 32%; top: -16%; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.16); }
 .muscle-line { position: absolute; height: 2px; border-radius: 999px; background: var(--green); box-shadow: var(--glow-green); }
@@ -794,6 +820,10 @@ input:focus, select:focus, textarea:focus { border-color: rgba(109, 255, 182, 0.
 .session-progress { display: flex; align-items: center; gap: 7px; }
 .session-dot { flex: 1; height: 6px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.09); }
 .session-dot.on { background: var(--grad-primary); }
+.session-rest { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; margin: 12px 0; padding: 11px 12px; border-radius: 14px; border: 1px solid rgba(109, 255, 182, 0.16); background: linear-gradient(135deg, rgba(109, 255, 182, 0.1), rgba(114, 217, 255, 0.04)); }
+.session-rest span { color: var(--muted); font-size: var(--text-xs); text-transform: uppercase; font-weight: 760; }
+.session-rest b { color: var(--green); font-size: var(--text-xl); }
+.session-rest small { grid-column: 1 / -1; color: var(--faint); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .set-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-bottom: 8px; }
 .set-row .set-n { color: var(--faint); text-align: center; font-family: var(--mono); font-weight: 760; }
 .set-row input { text-align: center; padding: 10px; }
@@ -846,6 +876,9 @@ input:focus, select:focus, textarea:focus { border-color: rgba(109, 255, 182, 0.
 
 @media (min-width: 760px) {
   .hero-panel { grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr); align-items: center; }
+  .hero-visual { position: relative; right: auto; bottom: auto; z-index: 1; width: auto; height: auto; min-height: 170px; overflow: visible; opacity: 1; pointer-events: auto; }
+  .orbital-graphic, .focus-graphic, .recovery-graphic, .semester-graphic, .control-graphic, .analytics-graphic { width: min(100%, 280px); }
+  .muscle-map { width: min(100%, 310px); aspect-ratio: 0.74; }
   .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .exercise-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -887,8 +920,21 @@ input:focus, select:focus, textarea:focus { border-color: rgba(109, 255, 182, 0.
   .ticker { padding-left: 8px; padding-right: 8px; }
   .tb-pill { min-width: 96px; padding: 0 10px; }
   .tb-label { display: none; }
-  .hero-panel { padding: 18px; border-radius: 24px; }
+  .hero-panel { min-height: auto; gap: 12px; padding: 18px; border-radius: 24px; }
   .hero-title { font-size: var(--text-2xl); }
+  .hero-sub { font-size: var(--text-sm); }
+  .hero-actions { margin-top: 14px; }
+  .metric-strip { gap: 8px; margin-top: 14px; }
+  .metric-tile { padding: 11px; }
+  .hero-visual { position: absolute; right: -22px; bottom: -26px; z-index: 0; width: min(54vw, 190px); min-height: 0; max-height: none; height: 178px; overflow: hidden; opacity: 0.58; pointer-events: none; }
+  .hero-visual .orbital-graphic,
+  .hero-visual .focus-graphic,
+  .hero-visual .recovery-graphic,
+  .hero-visual .semester-graphic,
+  .hero-visual .control-graphic,
+  .hero-visual .analytics-graphic { width: 100%; }
+  .hero-visual .muscle-map { width: 100%; aspect-ratio: 1.35; }
+  .hero-visual .muscle-body { width: 34%; height: 86%; }
   .exercise-plan-card { grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
   .exercise-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .po-rx-grid { grid-template-columns: 92px minmax(0, 1fr); }
