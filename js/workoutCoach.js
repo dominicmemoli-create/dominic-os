@@ -110,7 +110,10 @@ export function generateWorkoutFromSplit(splitDay, data) {
     return {
       exerciseId: id,
       name: ex.name,
-      muscleGroup: ex.muscleGroup,
+      category: ex.category,
+      primaryMuscle: ex.primaryMuscle,
+      equipment: ex.equipment,
+      classification: ex.classification,
       sets: ex.defaultSets,
       repLow: ex.repLow, repHigh: ex.repHigh,
       restSec: ex.restSec,
@@ -129,19 +132,21 @@ export function generateWorkoutFromSplit(splitDay, data) {
     durationMin: splitDay.durationMin, focusMuscles: splitDay.focusMuscles, plannedExercises };
 }
 
-// Same-muscle / listed alternatives for a swap.
+// Listed substitutions first, then same-category alternatives, for a swap.
 export function recommendExerciseSwaps(exercise, data) {
   const all = data.exercises || [];
   const byId = Object.fromEntries(all.map(e => [e.id, e]));
   const out = [];
   const seen = new Set([exercise.id]);
-  (exercise.replacements || []).forEach(id => {
+  (exercise.substitutions || exercise.replacements || []).forEach(id => {
     if (byId[id] && !seen.has(id)) { out.push(byId[id]); seen.add(id); }
   });
-  all.forEach(e => {
-    if (!seen.has(e.id) && e.muscleGroup === exercise.muscleGroup) { out.push(e); seen.add(e.id); }
-  });
-  return out.slice(0, 6);
+  // prefer same-category machine/cable options first
+  const sameCat = all.filter(e => !seen.has(e.id) && e.category === exercise.category);
+  const rank = e => (e.classification === 'machine' || e.classification === 'cable') ? 0 : 1;
+  sameCat.sort((a, b) => rank(a) - rank(b));
+  sameCat.forEach(e => { if (!seen.has(e.id)) { out.push(e); seen.add(e.id); } });
+  return out.slice(0, 8);
 }
 
 // Trim volume when recovery is poor. readiness 0..100.

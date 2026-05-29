@@ -52,16 +52,39 @@ function persist() {
   }
 }
 
-// Forward-compatible migration. Today only stamps version + backfills new keys.
+// Forward-compatible migration. Stamps version, backfills new keys, and
+// performs the v1 -> v2 upgrade (AFTERGLOW removed, Productivity added,
+// expanded exercise library).
 function migrate(data) {
   const base = emptyData();
   const merged = { ...base, ...data };
   merged.meta = { ...base.meta, ...(data.meta || {}), version: DATA_VERSION };
-  // backfill any nested containers added in newer versions
   merged.settings = { ...base.settings, ...(data.settings || {}) };
   merged.settings.water = { ...base.settings.water, ...((data.settings || {}).water || {}) };
-  merged.afterglow = { ...base.afterglow, ...(data.afterglow || {}) };
   merged.profile = { ...base.profile, ...(data.profile || {}) };
+
+  // Productivity replaces AFTERGLOW — ensure all sub-collections exist.
+  merged.productivity = { ...base.productivity, ...(data.productivity || {}) };
+  for (const k of ['weeklyGoals', 'deepWorkBlocks', 'priorityBacklog', 'followUps', 'lifeAdmin', 'habits']) {
+    if (!Array.isArray(merged.productivity[k])) merged.productivity[k] = [];
+  }
+  // Drop any legacy AFTERGLOW/founder data so nothing dead lingers.
+  delete merged.afterglow;
+
+  // v1 -> v2: if the gym library is still the untouched demo, swap in the
+  // expanded machine/cable-first library (and its matching sample split).
+  const fromVersion = (data.meta && data.meta.version) || 1;
+  if (fromVersion < DATA_VERSION) {
+    const exs = Array.isArray(data.exercises) ? data.exercises : [];
+    const untouchedLibrary = exs.length === 0 || exs.every(e => e && e._sample);
+    if (untouchedLibrary) {
+      const fresh = seedData();
+      merged.exercises = fresh.exercises;
+      merged.splits = fresh.splits;
+      merged.activeSplitId = fresh.activeSplitId;
+      merged.plannedWeek = null;
+    }
+  }
   return merged;
 }
 

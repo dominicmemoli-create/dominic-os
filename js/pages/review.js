@@ -38,7 +38,7 @@ export function render(main) {
   // scorecard averages
   main.appendChild(el('div.section-head', {}, [el('h2.section-title', { text: 'Scorecard averages' })]));
   const sc = el('div.card');
-  [['focus', 'Focus'], ['body', 'Body'], ['founder', 'Founder'], ['recovery', 'Recovery']].forEach(([k, label]) => {
+  [['focus', 'Focus'], ['body', 'Body'], ['mind', 'Mind'], ['recovery', 'Recovery']].forEach(([k, label]) => {
     const v = stats.scorecard[k];
     sc.appendChild(el('div', { style: { marginBottom: '10px' } }, [
       el('div.row.between', {}, [el('span.small', { text: label }), el('span.tiny.muted', { text: (v ?? 0).toFixed(1) + ' / 5' })]),
@@ -51,7 +51,11 @@ export function render(main) {
   main.appendChild(el('div.card', { style: { marginTop: '12px' } }, [
     el('div.row.between', {}, [el('span.label-cap', { text: 'Body weight change' }), el('span', { class: stats.bwDelta > 0 ? 'text-mint' : (stats.bwDelta < 0 ? 'text-amber' : 'muted'), text: (stats.bwDelta > 0 ? '+' : '') + stats.bwDelta + ' lb' })]),
     el('div.hr'),
-    el('div.row.between', {}, [el('span.label-cap', { text: 'AFTERGLOW priorities done' }), el('span.text-pink', { text: stats.agDone + ' / ' + stats.agTotal })]),
+    el('div.row.between', {}, [el('span.label-cap', { text: 'Weekly goals done' }), el('span.text-mint', { text: stats.goalsDone + ' / ' + stats.goalsTotal })]),
+    el('div.hr'),
+    el('div.row.between', {}, [el('span.label-cap', { text: 'Backlog cleared' }), el('span', { text: stats.backlogDone + ' / ' + stats.backlogTotal })]),
+    el('div.hr'),
+    el('div.row.between', {}, [el('span.label-cap', { text: 'Habit consistency' }), el('span.text-amber', { text: stats.habitPct + '%' })]),
     el('div.hr'),
     el('div.row.between', {}, [el('span.label-cap', { text: 'PRs set' }), el('span.text-mint', { text: String(stats.prs) })]),
   ]));
@@ -106,8 +110,8 @@ function computeStats(d, days) {
   const supAdherence = supDays ? Math.round((supSum / supDays) * 100) : 0;
 
   // scorecard averages
-  const scKeys = ['focus', 'body', 'founder', 'recovery'];
-  const scAcc = { focus: [], body: [], founder: [], recovery: [] };
+  const scKeys = ['focus', 'body', 'mind', 'recovery'];
+  const scAcc = { focus: [], body: [], mind: [], recovery: [] };
   window.forEach(dk => { const log = d.dailyLogs[dk]; if (log?.scorecard) scKeys.forEach(k => { if (log.scorecard[k]) scAcc[k].push(log.scorecard[k]); }); });
   const scorecard = {};
   scKeys.forEach(k => { scorecard[k] = scAcc[k].length ? scAcc[k].reduce((a, b) => a + b, 0) / scAcc[k].length : 0; });
@@ -116,10 +120,16 @@ function computeStats(d, days) {
   const bw = [...d.bodyWeightEntries].filter(e => inWindow(e.date)).sort((a, b) => (a.date < b.date ? -1 : 1));
   const bwDelta = bw.length >= 2 ? +(bw.at(-1).weight - bw[0].weight).toFixed(1) : 0;
 
-  // afterglow priorities
-  const agItems = [...(d.afterglow.weeklyPriorities || []), ...(d.afterglow.queue7day || []), ...(d.afterglow.launchTasks || [])];
-  const agDone = agItems.filter(i => i.done).length;
-  const agTotal = agItems.length;
+  // productivity progress
+  const p2 = d.productivity || {};
+  const goalsDone = (p2.weeklyGoals || []).filter(g => g.status === 'Done').length;
+  const goalsTotal = (p2.weeklyGoals || []).length;
+  const backlogDone = (p2.priorityBacklog || []).filter(i => i.done).length;
+  const backlogTotal = (p2.priorityBacklog || []).length;
+  // habit consistency over the window
+  let habitCells = 0, habitHit = 0;
+  (p2.habits || []).forEach(h => { window.forEach(dk => { habitCells++; if (h.log && h.log[dk]) habitHit++; }); });
+  const habitPct = habitCells ? Math.round((habitHit / habitCells) * 100) : 0;
 
   // prs in window
   const prs = d.personalRecords.filter(p => inWindow(p.date)).length;
@@ -131,7 +141,7 @@ function computeStats(d, days) {
     waterLogged, waterHit,
     supAdherence,
     scorecard, bwDelta,
-    agDone, agTotal, prs,
+    goalsDone, goalsTotal, backlogDone, backlogTotal, habitPct, prs,
   };
 }
 

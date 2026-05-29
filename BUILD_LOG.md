@@ -12,7 +12,7 @@ Overnight V1 build. Goal: a working, polished, mobile-friendly dashboard that op
 - **Health** — supplement stack grouped by timing with flashing missed flags + running-low; transparent water target (with breakdown) + 14-day history; manual sleep/recovery → readiness score + training call; wearable-prep roadmap card.
 
 **Tier 2 (working CRUD + clearly-labeled sample data):**
-- **AFTERGLOW** — stage tracker, weekly priorities, co-packers, regulatory checklist, Launch tasks, product testing, funding readiness, 7-day queue.
+- **Productivity** — weekly goals, deep work blocks, priority backlog, personal follow-ups, life admin, habit support. *(This slot originally shipped as a founder-specific section, which was removed and replaced in the v2 alignment pass — see `ROWAN_ALIGNMENT_CHANGELOG.md`.)*
 - **School** — classes, assignments, exams, study blocks.
 - **Admin** — reminders/errands, subscriptions (monthly/yearly cost roll-up), contacts.
 - **Review** — auto-computes workouts, volume, readiness avg, task/water/supplement adherence, scorecard averages, bodyweight delta, PRs over a weekly/monthly window; plus saved reflections.
@@ -25,6 +25,8 @@ Overnight V1 build. Goal: a working, polished, mobile-friendly dashboard that op
 - **Local-time date keys** (`dates.js`) so "today" matches the wall clock (not UTC).
 
 ## Source reference (Rowan Thistlebrooke) — time-boxed
+> **Update (v2 alignment pass):** the repos were later cloned and inspected in full — see `ROWAN_VISUAL_AUDIT.md` and `ROWAN_ALIGNMENT_CHANGELOG.md`. The original note below reflects the first overnight build only.
+
 Did **not** spend session time hunting the GitHub repos (`RowanThistlebrooke` — YTdashh1, dashboard, Whoop-RowanTBK, etc.); per the brief they may be private/unreachable and chasing them isn't worth the overnight budget. Built from the transcript understanding instead and **improved on it** where called out: centralized storage (vs scattered `getItem`), mobile-first bottom nav, photo compression, and a cleaner premium UI. Patterns adopted: always-visible goals via a sticky ticker, supplement timing windows with flashing missed warnings, a personal-inputs water tracker, gym progressive-overload coaching, and a Supabase-sync-ready data layer. The WHOOP OAuth structure is kept only as a future pattern (`wearableProvider.js`), not a V1 feature.
 
 ## Gym progression rules (rule-based, in `workoutCoach.js`)

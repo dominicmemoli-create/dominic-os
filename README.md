@@ -1,18 +1,20 @@
 # Dominic OS
 
-A personal life command center for Dominic — founder life (AFTERGLOW), gym, health/recovery, school, and admin — on one fast, premium, mobile-friendly screen.
+A personal life command center for Dominic — productivity, gym, health/recovery, school, admin and daily execution — on one fast, phone-first screen.
 
-Built as **plain static HTML + CSS + vanilla JS (ES modules)**. No build step, no framework, no backend. Open it and it runs.
+Built as **plain static HTML + CSS + vanilla JS (ES modules)**. No build step, no framework, no backend. Open it and it runs. The visual language is aligned to Rowan Thistlebrooke's dashboard (warm near-black, green/gold/red accents, mono numerals, a pill command bar, a cycling LED goal ticker, and a floating tabbar) — see `ROWAN_VISUAL_AUDIT.md` and `ROWAN_ALIGNMENT_CHANGELOG.md`.
 
 ---
 
 ## What it does
 
-- **Today** — greeting, day-progress ring, mode selector, top-3 priorities (startup / body / school), full task CRUD, daily scorecard, quick reflection. History is kept per date and never overwritten.
-- **Gym** (the centerpiece) — split editor, exercise library, weekly plan generator, **live set-by-set workout logging**, and **rule-based progressive-overload coaching** (double progression). Body-weight trend + compressed progress photos. PRs, volume, and "ready to add weight" / "stalled" flags.
-- **Health** — supplement stack with timing windows + **flashing missed-dose warnings** + running-low flags, a transparent water tracker, and manual sleep/recovery logging that produces a **readiness score** and a Push / Normal / Maintain / Recover call.
-- **AFTERGLOW** — founder dashboard: stage tracker, weekly priorities, co-packer outreach, regulatory checklist, MSU Launch tasks, product testing, funding readiness, 7-day queue.
+- **Today** — greeting, day-progress ring, a cycling LED goal ticker, top-3 priorities (work / body / school) with a completion bar, mode selector, full task CRUD (incl. push-to-tomorrow), daily scorecard, quick reflection. History is kept per date and never overwritten.
+- **Productivity** — general life execution: weekly goals, deep work blocks, priority backlog, personal follow-ups, life admin, and a habit-support weekly grid. (Replaced an earlier founder-specific section.)
+- **Gym** (the centerpiece) — split editor, a **70-exercise machine/cable-first library** (every card shows an instruction visual), weekly plan generator, **live set-by-set workout logging**, and **rule-based progressive-overload coaching** (double progression) shown as prescription cards. Body-weight trend + compressed progress photos. PRs, volume, and "ready to add weight" / "stalled" flags.
+- **Health** — supplement stack with timing windows + **flashing missed-dose warnings** + running-low flags, a transparent water tracker, and manual sleep/recovery logging that produces a **readiness score** and a Push / Normal / Maintain / Recover call. Wearable sync is future prep only.
 - **School / Admin / Review** — classes/assignments/exams/study blocks, reminders/contacts/subscriptions, and a Review page that auto-pulls live stats from your logs.
+
+The sticky **command bar** (Goals · Stack · Water+ · Gym · Next) and the floating bottom tab bar make it natural to open on a phone many times a day.
 
 All data lives in your browser via `localStorage`, routed through one data layer (`js/store.js`). Export/import JSON backups any time.
 
@@ -63,6 +65,10 @@ Everything is stored in the browser. Clearing site data wipes it. Use **Data & B
 ---
 
 ## Docs
-- `BUILD_LOG.md` — what was built, key decisions, and the gym progression rules.
+- `ROWAN_VISUAL_AUDIT.md` — inspection of Rowan's actual repos and the patterns adopted.
+- `ROWAN_ALIGNMENT_CHANGELOG.md` — every visual/structural change in the alignment pass.
+- `EXERCISE_LIBRARY_NOTES.md` — how the 70-exercise library + image placeholders work.
+- `GYM_LOGIC.md` — exercise selection, progression, swap, and image fallback rules.
 - `DATA_SCHEMA.md` — every data model and localStorage key.
+- `BUILD_LOG.md` — the original overnight build log.
 - `NEXT_STEPS.md` — what to do next, the Supabase-sync path, the wearable plan, and credential TODOs.

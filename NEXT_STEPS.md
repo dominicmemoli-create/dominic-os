@@ -10,7 +10,7 @@ What to do tomorrow, plus the two integration paths and the things that need you
 5. **Export a backup.** Build the habit now — local data is wiped if you clear site data.
 
 ## Polish backlog (nice-to-have)
-- Replace the placeholder app icons (`icons/icon-192.png`, `icon-512.png`, `icon.svg`) with real AFTERGLOW/Dominic brand art.
+- Replace the placeholder app icons (`icons/icon-192.png`, `icon-512.png`, `icon.svg`) with your own Dominic OS brand art.
 - Add a completion timestamp to tasks so Review's "tasks done" can be windowed to the period instead of all-time.
 - Add real exercise images by pasting URLs into each exercise's `imageUrl` field (Library → edit).
 - Optional: rest-timer countdown during live workout logging.

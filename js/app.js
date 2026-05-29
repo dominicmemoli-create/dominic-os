@@ -5,9 +5,9 @@ import { loadData } from './store.js';
 import { renderTicker } from './ticker.js';
 
 import * as today from './pages/today.js';
+import * as productivity from './pages/productivity.js';
 import * as gym from './pages/gym.js';
 import * as health from './pages/health.js';
-import * as afterglow from './pages/afterglow.js';
 import * as school from './pages/school.js';
 import * as admin from './pages/admin.js';
 import * as review from './pages/review.js';
@@ -15,9 +15,9 @@ import * as review from './pages/review.js';
 // Minimal inline icon set (stroke-based, premium look).
 const ICONS = {
   today: '<path d="M3 10h18M7 3v3M17 3v3"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 14h3"/>',
+  productivity: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   gym: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
   health: '<path d="M3 12h4l2 5 4-12 2 7h6"/>',
-  afterglow: '<path d="M8 21h8M12 15v6M5 3h14l-1.2 7a6 6 0 0 1-11.6 0L5 3Z"/>',
   school: '<path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="M7 10v5a5 3 0 0 0 10 0v-5"/>',
   admin: '<circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2.2-1.3L14 1.5h-4l-.4 2.5a7 7 0 0 0-2.2 1.3l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .9.1 1.3l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7 7 0 0 0 2.2-1.3l2.3 1 2-3.4-2-1.5c.1-.4.1-.9.1-1.3Z"/>',
   review: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -25,9 +25,9 @@ const ICONS = {
 
 const ROUTES = [
   { id: 'today', label: 'Today', icon: 'today', mod: today },
+  { id: 'productivity', label: 'Productivity', shortLabel: 'Focus', icon: 'productivity', mod: productivity },
   { id: 'gym', label: 'Gym', icon: 'gym', mod: gym },
   { id: 'health', label: 'Health', icon: 'health', mod: health },
-  { id: 'afterglow', label: 'AFTERGLOW', shortLabel: 'Glow', icon: 'afterglow', mod: afterglow },
   { id: 'school', label: 'School', icon: 'school', mod: school },
   { id: 'admin', label: 'Admin', icon: 'admin', mod: admin },
   { id: 'review', label: 'Review', icon: 'review', mod: review },

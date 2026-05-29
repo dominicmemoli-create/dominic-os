@@ -128,17 +128,22 @@ export function nextDeadline(data) {
   (data.exams || []).forEach(e => { if (e.date) candidates.push({ text: e.title, due: e.date, kind: 'Exam' }); });
   (data.adminReminders || []).forEach(r => { if (!r.done && r.due) candidates.push({ text: r.text, due: r.due, kind: 'Admin' }); });
   (data.tasks || []).forEach(t => { if (!t.done && t.due) candidates.push({ text: t.title, due: t.due, kind: 'Task' }); });
+  const p = data.productivity || {};
+  (p.lifeAdmin || []).forEach(i => { if (!i.done && i.due) candidates.push({ text: i.text, due: i.due, kind: 'Admin' }); });
+  (p.followUps || []).forEach(f => { if (f.status !== 'Done' && f.due) candidates.push({ text: f.action, due: f.due, kind: 'Follow-up' }); });
   candidates.sort((a, b) => (a.due < b.due ? -1 : 1));
   const future = candidates.filter(c => daysUntil(c.due) >= 0);
   return future[0] || candidates[0] || null;
 }
 
-export function afterglowNextAction(data) {
-  const ag = data.afterglow || {};
-  const wp = (ag.weeklyPriorities || []).find(p => !p.done);
-  if (wp) return wp.text;
-  const q = (ag.queue7day || []).find(p => !p.done);
-  if (q) return q.text;
-  const lt = (ag.launchTasks || []).find(p => !p.done);
-  return lt ? lt.text : 'All priorities clear';
+// Next general-productivity action to surface in the ticker.
+export function productivityNextAction(data) {
+  const p = data.productivity || {};
+  const wg = (p.weeklyGoals || []).find(g => g.status !== 'Done');
+  if (wg) return wg.nextAction || wg.title;
+  const pb = (p.priorityBacklog || []).find(i => !i.done);
+  if (pb) return pb.nextAction || pb.title;
+  const fu = (p.followUps || []).find(f => f.status !== 'Done');
+  if (fu) return `${fu.person}: ${fu.action}`;
+  return 'All clear';
 }
