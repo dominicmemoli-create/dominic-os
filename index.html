@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0B0B14" />
+  <meta name="description" content="Dominic OS — personal command center for founder life, gym, health, school and admin." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dominic OS" />
+  <title>Dominic OS</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="ticker" class="ticker" aria-label="Command ticker"></header>
+  <div class="layout">
+    <aside id="sidebar" class="sidebar" aria-label="Navigation"></aside>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+  <nav id="bottomnav" class="bottomnav" aria-label="Primary navigation"></nav>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

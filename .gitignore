@@ -1,0 +1,24 @@
+# Dominic OS — static app, no build step. Keep the tree clean.
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs / deps (none expected, but guard against accidents)
+node_modules/
+npm-debug.log*
+*.log
+
+# Local backups exported from the app
+*.backup.json
+dominic-os-backup-*.json
+
+# Env / secrets (none in V1 — here so future Supabase/wearable keys never leak)
+.env
+.env.*
