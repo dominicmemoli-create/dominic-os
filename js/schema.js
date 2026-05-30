@@ -7,13 +7,37 @@
 
 import { todayKey, addDays, lastNDays } from './dates.js';
 
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
 
 const T = todayKey();
 const yesterday = todayKey(addDays(new Date(), -1));
 const twoAgo = todayKey(addDays(new Date(), -2));
 
 const LIC = 'Local generated instruction placeholder. Real photos can be added via imageUrl — safe sources: free-exercise-db / wger (see EXERCISE_LIBRARY_NOTES.md).';
+
+// Real, public-domain exercise photos from Free Exercise DB (primary source,
+// Unlicense). Mapped only for verified core machine/cable lifts; everything else
+// keeps the instructional placeholder. The exercise card's onerror handler swaps
+// any failed/missing load back to the placeholder, so a broken image is impossible.
+const FEDB_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+const FEDB_PD = 'Public domain (Unlicense) — github.com/yuhonas/free-exercise-db';
+const FEDB_IMG = {
+  machineChestPress: 'Machine_Bench_Press', pecDeck: 'Butterfly', cableFly: 'Cable_Crossover',
+  lateralRaiseMachine: 'Side_Lateral_Raise', cablePushdown: 'Triceps_Pushdown',
+  latPulldown: 'Wide-Grip_Lat_Pulldown', seatedCableRow: 'Seated_Cable_Rows',
+  highRow: 'Leverage_High_Row', facePull: 'Face_Pull', legPress: 'Leg_Press',
+  hackSquat: 'Hack_Squat', legExtension: 'Leg_Extensions', seatedLegCurl: 'Seated_Leg_Curl',
+  calfRaiseMachine: 'Standing_Calf_Raises', ezBarCurl: 'EZ-Bar_Curl',
+};
+function applyFedbImages(list) {
+  for (const ex of list) {
+    const folder = FEDB_IMG[ex.id];
+    if (!folder) continue;
+    ex.imageUrl = FEDB_BASE + folder + '/0.jpg';
+    ex.imageSource = 'free-exercise-db';
+    ex.imageLicenseNotes = FEDB_PD;
+  }
+}
 
 // Compact exercise builder — keeps the 70-item library readable & consistent.
 // classification: 'machine' | 'cable' | 'free weight' | 'bodyweight' | 'functional'
@@ -41,7 +65,7 @@ function mk(id, name, category, primaryMuscle, equipment, classification, o = {}
 
 // ---- Exercise library (70+, machine/cable-first for a commercial gym) -----
 function exList() {
-  return [
+  const list = [
     // ---------------- CHEST ----------------
     mk('machineChestPress', 'Machine Chest Press', 'Chest', 'Pectorals', 'Selectorized Machine', 'machine', { lo: 8, hi: 12, sec: ['Triceps', 'Front Delts'], cues: 'Handles at mid-chest, press smooth, full stretch back.', miss: 'Flaring elbows; bouncing off the stack.', subs: ['seatedChestPress', 'plateLoadedChestPress', 'machineInclinePress'] }),
     mk('machineInclinePress', 'Incline Machine Press', 'Chest', 'Upper Pectorals', 'Selectorized Machine', 'machine', { lo: 8, hi: 12, sec: ['Front Delts', 'Triceps'], cues: 'Seat low, drive up and slightly in.', miss: 'Seat too high turns it into a shoulder press.', subs: ['inclineDbPress', 'machineChestPress'] }),
@@ -128,6 +152,8 @@ function exList() {
     mk('medBallSlam', 'Medicine Ball Slam', 'Functional', 'Core', 'Medicine Ball', 'functional', { lo: 10, hi: 15, rest: 60, inc: 0, sec: ['Shoulders'], cues: 'Full overhead reach, slam through the floor.', miss: 'Half-hearted reach.', subs: ['battleRopes'] }),
     mk('farmersCarry', "Farmer's Carry", 'Functional', 'Grip / Core', 'Dumbbells / Handles', 'functional', { lo: 1, hi: 1, rest: 90, sec: ['Traps', 'Forearms'], cues: 'Tall posture, brace, walk a length = 1 rep.', miss: 'Leaning or shrugging.', subs: ['sledPush'] }),
   ];
+  applyFedbImages(list);
+  return list;
 }
 
 // ---- Machine/cable-first PPL split (sample) -------------------------------

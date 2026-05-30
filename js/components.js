@@ -13,6 +13,89 @@ export function isDemoMode(data) {
   return !!(data && data.meta && data.meta.demoMode);
 }
 
+/* ===== Signature muscle map (front + back athletic anatomy) =====
+   Vanilla port of the Claude Design `lib.jsx` MuscleMap. Highlight bloom is
+   driven by the `.mmap.push/.pull/.legs` CSS classes, so muscle paths only
+   carry semantic classes (chest, lat, quad, ...). */
+const MM_DEFS = `
+<defs>
+  <radialGradient id="mmTorso" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="rgba(255,255,255,0.07)"/><stop offset="1" stop-color="rgba(255,255,255,0.012)"/></radialGradient>
+  <linearGradient id="mmForm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(255,255,255,0.085)"/><stop offset="1" stop-color="rgba(255,255,255,0.022)"/></linearGradient>
+  <linearGradient id="mmWarm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd089"/><stop offset="0.5" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ff5f7a"/></linearGradient>
+  <linearGradient id="mmCool" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdf2ff"/><stop offset="0.5" stop-color="#72d9ff"/><stop offset="1" stop-color="#5aa0ff"/></linearGradient>
+  <linearGradient id="mmGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffedb3"/><stop offset="0.5" stop-color="#ffd166"/><stop offset="1" stop-color="#ffab3d"/></linearGradient>
+</defs>`;
+const MM_BASE = `
+  <ellipse class="body" cx="52" cy="18" rx="10.5" ry="11.5"/>
+  <path class="body" d="M46 27 L58 27 L57 35 Q52 38 47 35 Z"/>
+  <path class="body" d="M33 45 Q52 39 71 45 L65 114 Q52 122 39 114 Z"/>
+  <ellipse class="body" cx="24" cy="78" rx="7.5" ry="21"/><ellipse class="body" cx="80" cy="78" rx="7.5" ry="21"/>
+  <ellipse class="body" cx="20.5" cy="119" rx="6" ry="19"/><ellipse class="body" cx="83.5" cy="119" rx="6" ry="19"/>
+  <ellipse class="body" cx="19" cy="142" rx="5" ry="7"/><ellipse class="body" cx="85" cy="142" rx="5" ry="7"/>
+  <path class="body" d="M39 112 Q52 120 65 112 L62 132 Q52 138 42 132 Z"/>
+  <ellipse class="body" cx="44" cy="156" rx="9.5" ry="27"/><ellipse class="body" cx="60" cy="156" rx="9.5" ry="27"/>
+  <ellipse class="body" cx="45.5" cy="199" rx="7.5" ry="25"/><ellipse class="body" cx="58.5" cy="199" rx="7.5" ry="25"/>
+  <ellipse class="body" cx="45.5" cy="223" rx="5" ry="5"/><ellipse class="body" cx="58.5" cy="223" rx="5" ry="5"/>`;
+const MM_FRONT = MM_BASE + `
+  <path class="m fdelt" d="M30 50 C20 51 16 58 16 66 C24 71 32 67 34 60 C35 54 33 50 30 50 Z"/>
+  <path class="m fdelt" d="M74 50 C84 51 88 58 88 66 C80 71 72 67 70 60 C69 54 71 50 74 50 Z"/>
+  <path class="m chest" d="M50 46 C39 45 31 50 31 59 C31 68 41 72 50 66 C51 59 51 52 50 46 Z"/>
+  <path class="m chest" d="M54 46 C65 45 73 50 73 59 C73 68 63 72 54 66 C53 59 53 52 54 46 Z"/>
+  <ellipse class="m bi" cx="23" cy="80" rx="6.5" ry="15"/><ellipse class="m bi" cx="81" cy="80" rx="6.5" ry="15"/>
+  <path class="m tri" d="M16 66 C13 74 14 88 18 96 L21.5 92 C19 83 19 73 20 67 Z"/>
+  <path class="m tri" d="M88 66 C91 74 90 88 86 96 L82.5 92 C85 83 85 73 84 67 Z"/>
+  <rect class="m abs" x="44" y="68" width="16" height="40" rx="5"/>
+  <path class="m oblique" d="M43 72 C38.5 78 38.5 98 43 108 L45.5 106 L45.5 74 Z"/>
+  <path class="m oblique" d="M61 72 C65.5 78 65.5 98 61 108 L58.5 106 L58.5 74 Z"/>
+  <path class="m quad" d="M40 116 C34 120 35 148 41 166 C45 172 49.5 168 49.5 150 L49 118 Z"/>
+  <path class="m quad" d="M64 116 C70 120 69 148 63 166 C59 172 54.5 168 54.5 150 L55 118 Z"/>
+  <path class="m calf" d="M41 178 C37 184 39 202 44 209 C47 211 48.5 203 48.5 193 L47.5 178 Z"/>
+  <path class="m calf" d="M63 178 C67 184 65 202 60 209 C57 211 55.5 203 55.5 193 L56.5 178 Z"/>
+  <path class="seg" d="M52 47 L52 65"/><path class="seg" d="M52 68 L52 107"/>
+  <path class="seg" d="M45 80 L59 80 M45 90 L59 90 M45 100 L59 100"/>
+  <path class="seg" d="M44 124 L46.5 160 M60 124 L57.5 160"/>`;
+const MM_BACK = MM_BASE + `
+  <path class="m uback" d="M40 33 Q52 30 64 33 L68 56 Q52 62 36 56 Z"/>
+  <path class="m rdelt" d="M30 50 C20 51 16 58 16 66 C24 71 32 67 34 60 C35 54 33 50 30 50 Z"/>
+  <path class="m rdelt" d="M74 50 C84 51 88 58 88 66 C80 71 72 67 70 60 C69 54 71 50 74 50 Z"/>
+  <path class="m lat" d="M35 54 C29 64 32 86 45 94 L50 66 C48 59 42 55 35 54 Z"/>
+  <path class="m lat" d="M69 54 C75 64 72 86 59 94 L54 66 C56 59 62 55 69 54 Z"/>
+  <ellipse class="m tri" cx="23" cy="80" rx="6.5" ry="15"/><ellipse class="m tri" cx="81" cy="80" rx="6.5" ry="15"/>
+  <path class="m erector" d="M47 94 Q52 98 57 94 L56 112 Q52 116 48 112 Z"/>
+  <path class="m glute" d="M41 113 C34 115 34 130 44 133 C51 134 51 117 47 113 Z"/>
+  <path class="m glute" d="M63 113 C70 115 70 130 60 133 C53 134 53 117 57 113 Z"/>
+  <path class="m ham" d="M41 136 C36 140 37 160 42 173 C46 178 49.5 173 49.5 156 L48.5 138 Z"/>
+  <path class="m ham" d="M63 136 C68 140 67 160 62 173 C58 178 54.5 173 54.5 156 L55.5 138 Z"/>
+  <path class="m calf" d="M41 178 C37 184 39 202 44 209 C47 211 48.5 203 48.5 193 L47.5 178 Z"/>
+  <path class="m calf" d="M63 178 C67 184 65 202 60 209 C57 211 55.5 203 55.5 193 L56.5 178 Z"/>
+  <path class="seg" d="M52 31 L52 112"/><path class="seg" d="M44 40 L44 52 M60 40 L60 52"/>
+  <path class="seg" d="M42 70 L48 82 M62 70 L56 82"/>`;
+
+// Map a split day (or label) to a highlight tone: push / pull / legs / '' (none).
+export function splitTone(day) {
+  if (!day) return '';
+  if (day.kind && day.kind !== 'training') return '';
+  const hay = ((day.label || '') + ' ' + (day.focusMuscles || []).join(' ')).toLowerCase();
+  if (/(leg|quad|ham|glute|calf|lower)/.test(hay)) return 'legs';
+  if (/(pull|back|lat|row|bicep|rear)/.test(hay)) return 'pull';
+  if (/(push|chest|shoulder|tricep|press|upper)/.test(hay)) return 'push';
+  return '';
+}
+
+// Build the front+back muscle map figure. `tone` is '', 'push', 'pull' or 'legs'.
+export function muscleMap(tone = '') {
+  const wrap = el('div.muscle-figure');
+  const holder = document.createElement('div');
+  holder.innerHTML =
+    `<svg class="mmap ${tone}" viewBox="0 0 220 240" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
+    MM_DEFS +
+    '<g transform="translate(0,4)">' + MM_FRONT + '</g>' +
+    '<g transform="translate(116,4)">' + MM_BACK + '</g>' +
+    '</svg>';
+  if (holder.firstElementChild) wrap.appendChild(holder.firstElementChild);
+  return wrap;
+}
+
 export function visibleItems(data, items) {
   const arr = Array.isArray(items) ? items : [];
   return isDemoMode(data) ? arr : arr.filter(item => item && !item._sample);
@@ -142,12 +225,15 @@ export function sparkline(values, mint = false) {
 export function metricRing(value, label, color = 'var(--green)') {
   const n = Number(value);
   const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
-  return el('div.metric-ring', { style: { '--p': pct, '--ring-color': color } }, [
+  // Start at 0 and let CSS transition draw the arc in on load.
+  const ring = el('div.metric-ring', { style: { '--p': 0, '--ring-color': color } }, [
     el('div.metric-ring-inner', {}, [
       el('div.metric-ring-value', { text: Number.isFinite(n) ? String(value) : '0' }),
       el('div.metric-ring-label', { text: label }),
     ]),
   ]);
+  requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.setProperty('--p', pct); }));
+  return ring;
 }
 
 export function pageHero({ kicker, title, subtitle, tone = 'cool', graphic, actions = [], metrics = [] }) {
@@ -197,13 +283,7 @@ export function pageGraphic(type, options = {}) {
     return el('div.analytics-graphic', {}, [el('div.analytics-web')]);
   }
   if (type === 'muscle') {
-    return el('div.muscle-map', {}, [
-      el('div.muscle-body', {}, [
-        el('span.muscle-line.chest'),
-        el('span.muscle-line.back'),
-        el('span.muscle-line.legs'),
-      ]),
-    ]);
+    return muscleMap(options.tone || splitTone(options.day));
   }
   const progress = options.progress ?? 78;
   return el('div.orbital-graphic', {}, [

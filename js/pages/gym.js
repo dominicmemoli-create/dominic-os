@@ -10,7 +10,7 @@ import {
   recommendExerciseSwaps, summarizeWeeklyTraining, adjustWorkoutForRecovery, e1rm,
 } from '../workoutCoach.js';
 import { todaySplitDay, readinessToday } from '../compute.js';
-import { sparkline, kpiTile, storageMeter, pageHero, pageGraphic, statTile, premiumEmpty } from '../components.js';
+import { sparkline, kpiTile, storageMeter, pageHero, pageGraphic, statTile, premiumEmpty, muscleMap, splitTone } from '../components.js';
 
 let gymTab = 'today';
 let activeSession = null;
@@ -86,7 +86,7 @@ export function render(main) {
       ? `${(day.focusMuscles || []).join(', ') || 'Full body'} - ${day.durationMin || 60} min - machine/cable first.`
       : 'Your starter split, exercise library, generator, and progression coach live here.',
     tone: 'hot',
-    graphic: pageGraphic('muscle'),
+    graphic: pageGraphic('muscle', { tone: splitTone(day) }),
     actions: [
       el('button.btn.primary', { type: 'button', onclick: () => { if (wk && wk.kind === 'training') startSession(wk, refresh); else { gymTab = 'plan'; refresh(); } } }, [wk && wk.kind === 'training' ? 'Start workout' : 'Set up split']),
       el('button.btn.ghost', { type: 'button', onclick: () => { gymTab = 'library'; refresh(); } }, ['Exercise library']),
@@ -122,6 +122,7 @@ function renderToday(c, refresh) {
   const adj = adjustWorkoutForRecovery(workout, r.score);
   workout = adj.workout;
 
+  if (workout.kind === 'training') c.appendChild(muscleMapCard(day));
   c.appendChild(weeklySplitRail(d));
 
   const head = el('div.card.card-glow', { style: { marginTop: '14px' } }, [
@@ -152,6 +153,23 @@ function renderToday(c, refresh) {
   const list = el('div.exercise-list');
   workout.plannedExercises.forEach((p, i) => list.appendChild(exercisePlanCard(p, workout, i, refresh)));
   c.appendChild(list);
+}
+
+function muscleMapCard(day) {
+  const tone = splitTone(day);
+  const focus = day.focusMuscles || [];
+  const blurb = { push: 'Warm bloom = today’s pushing muscles.', pull: 'Blue bloom = today’s pulling muscles.', legs: 'Gold bloom = today’s lower body.' }[tone] || 'Today’s targeted muscles.';
+  return el('div.card', {}, [
+    el('div.label-cap', { text: 'Today’s target' }),
+    el('div.muscle-card', { style: { marginTop: '10px' } }, [
+      el('div.muscle-legend', {}, [
+        el('h2', { text: (day.label || 'Training') + ' day', style: { fontSize: '20px' } }),
+        ...(focus.length ? focus.map(m => el('span.chip.mint', { text: m })) : [el('span.chip.muted', { text: 'Full body' })]),
+        el('p.tiny.muted', { style: { marginTop: '2px' }, text: blurb }),
+      ]),
+      el('div.muscle-card-fig', {}, [muscleMap(tone)]),
+    ]),
+  ]);
 }
 
 function weeklySplitRail(d) {

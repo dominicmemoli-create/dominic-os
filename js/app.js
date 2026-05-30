@@ -138,6 +138,15 @@ function renderRoute() {
     ]));
   }
   main.focus({ preventScroll: true });
+
+  // Staggered entrance animation — runs on route change only. In-page refreshes
+  // call the page's render() directly (not renderRoute), so they never re-trigger
+  // it. `rise` keyframe ends fully visible, so content is safe even if removed early.
+  main.classList.remove('is-entering');
+  void main.offsetWidth; // force reflow so the animation restarts cleanly
+  main.classList.add('is-entering');
+  clearTimeout(renderRoute._entranceTimer);
+  renderRoute._entranceTimer = setTimeout(() => main.classList.remove('is-entering'), 900);
 }
 
 let _booted = false;
