@@ -27,7 +27,7 @@ function paint() {
   const wk = todayWorkout(d);
   const priorities = todayPriorities(d).filter(p => p.text);
   const donePriorities = priorities.filter(p => p.done).length;
-  const focusScore = priorities.length ? Math.round((donePriorities / priorities.length) * 100) : 87;
+  const focusScore = priorities.length ? Math.round((donePriorities / priorities.length) * 100) : null;
 
   const sleep = rec && rec.durationH ? `${rec.durationH}h` : '--';
   const hrv = rec && rec.hrv ? String(rec.hrv) : '--';
@@ -65,7 +65,7 @@ function paint() {
   bar.appendChild(el('div.tb-water-wrap', {}, [waterPill, addBtn]));
 
   bar.appendChild(pill('gym', 'Gym', gymLabel, wk && wk.kind === 'training' ? '' : 'idle'));
-  bar.appendChild(pill('today', 'Focus', String(focusScore), focusScore >= 80 ? '' : 'warn', '+9%'));
+  bar.appendChild(pill('today', 'Focus', focusScore != null ? String(focusScore) : '--', focusScore == null ? 'idle' : (focusScore >= 80 ? '' : 'warn'), focusScore != null ? '+9%' : ''));
   bar.appendChild(pill('review', 'System', 'Optimal', ''));
 
   clear(host).appendChild(bar);

@@ -31,7 +31,7 @@ export function render(main) {
     title: 'Optimize biology.',
     subtitle: 'Recovery, hydration, supplements, wearable shell.',
     tone: 'cool',
-    graphic: pageGraphic('recovery', { score: ready.score ?? 82, fill: water.percent || 45, label: 'Readiness' }),
+    graphic: pageGraphic('recovery', { score: ready.score ?? 0, fill: water.percent || 0, label: 'Readiness' }),
     actions: [
       el('button.btn.primary', { type: 'button', onclick: () => logRecovery(refresh) }, ['Log recovery']),
       el('button.btn.ghost', { type: 'button', onclick: () => editSupplement(null, refresh) }, ['Add supplement']),
